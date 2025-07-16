@@ -2,7 +2,7 @@
 <launch>
      
      <arg name="rviz_conf" default="$(find giraffe-robot)/rviz/config.rviz"/>
-     <arg name="robot_name" default="prova"/>
+     <arg name="robot_name" default="giraffe"/>
      <arg name="test_joints" default="true"/>
 
      <!-- send the robot XML to param server -->
