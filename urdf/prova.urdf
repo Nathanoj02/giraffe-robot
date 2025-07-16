@@ -1,0 +1,276 @@
+<?xml version="1.0"?>
+<robot name="giraffe_robot" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+    <!-- World link (ceiling mount point) -->
+    <link name="world"/>
+    
+    <!-- Fixed joint to ceiling - robot is mounted at ceiling center -->
+    <joint name="world_joint" type="fixed">
+        <parent link="world"/>
+        <child link="base_link"/>
+        <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+    </joint>
+
+    <!-- Base link - ceiling mount -->
+    <link name="base_link">
+        <visual>
+            <geometry>
+                <cylinder radius="0.1" length="0.2"/>
+            </geometry>
+            <material name="base_color">
+                <color rgba="0.8 0.8 0.8 1.0"/>
+            </material>
+        </visual>
+        <collision>
+            <geometry>
+                <cylinder radius="0.1" length="0.2"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <mass value="5.0"/>
+            <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+            <inertia ixx="0.02" ixy="0.0" ixz="0.0" iyy="0.02" iyz="0.0" izz="0.025"/>
+        </inertial>
+    </link>
+
+    <!-- Joint 1: First rotation of spherical joint (around Z-axis) -->
+    <joint name="base_rotation_z" type="revolute">
+        <parent link="base_link"/>
+        <child link="shoulder_link"/>
+        <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.1"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="100.0" lower="-3.14159265" upper="3.14159265" velocity="2.0"/>
+        <dynamics damping="0.1" friction="0.0"/>
+    </joint>
+
+    <!-- Shoulder link - connects the two spherical joint rotations -->
+    <link name="shoulder_link">
+        <visual>
+            <geometry>
+                <cylinder radius="0.08" length="0.15"/>
+            </geometry>
+            <material name="shoulder_color">
+                <color rgba="0.7 0.7 0.7 1.0"/>
+            </material>
+        </visual>
+        <collision>
+            <geometry>
+                <cylinder radius="0.08" length="0.15"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <mass value="3.0"/>
+            <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+            <inertia ixx="0.015" ixy="0.0" ixz="0.0" iyy="0.015" iyz="0.0" izz="0.0096"/>
+        </inertial>
+    </link>
+
+    <!-- Joint 2: Second rotation of spherical joint (around Y-axis, intersecting with first) -->
+    <joint name="shoulder_tilt_y" type="revolute">
+        <parent link="shoulder_link"/>
+        <child link="upper_arm_link"/>
+        <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.075"/>
+        <axis xyz="0 1 0"/>
+        <limit effort="100.0" lower="-1.57079633" upper="1.57079633" velocity="2.0"/>
+        <dynamics damping="0.1" friction="0.0"/>
+    </joint>
+
+    <!-- Upper arm link - houses the prismatic joint mechanism -->
+    <link name="upper_arm_link">
+        <visual>
+            <geometry>
+                <box size="0.12 0.12 0.3"/>
+            </geometry>
+            <material name="upper_arm_color">
+                <color rgba="0.6 0.6 0.6 1.0"/>
+            </material>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="0.12 0.12 0.3"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <mass value="4.0"/>
+            <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+            <inertia ixx="0.03" ixy="0.0" ixz="0.0" iyy="0.03" iyz="0.0" izz="0.0096"/>
+        </inertial>
+    </link>
+
+    <!-- Joint 3: Prismatic joint for telescopic extension -->
+    <joint name="telescopic_joint" type="prismatic">
+        <parent link="upper_arm_link"/>
+        <child link="telescopic_link"/>
+        <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.15"/>
+        <axis xyz="0 0 -1"/>
+        <limit effort="200.0" lower="0.0" upper="2.5" velocity="1.0"/>
+        <dynamics damping="0.2" friction="0.0"/>
+    </joint>
+
+    <!-- Telescopic link - extendable section -->
+    <link name="telescopic_link">
+        <visual>
+            <geometry>
+                <cylinder radius="0.04" length="0.5"/>
+            </geometry>
+            <material name="telescopic_color">
+                <color rgba="0.9 0.7 0.2 1.0"/>
+            </material>
+        </visual>
+        <collision>
+            <geometry>
+                <cylinder radius="0.04" length="0.5"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <mass value="2.0"/>
+            <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+            <inertia ixx="0.042" ixy="0.0" ixz="0.0" iyy="0.042" iyz="0.0" izz="0.0016"/>
+        </inertial>
+    </link>
+
+    <!-- Joint 4: Wrist rotation 1 (around Z-axis) -->
+    <joint name="wrist_1_joint" type="revolute">
+        <parent link="telescopic_link"/>
+        <child link="wrist_1_link"/>
+        <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.25"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="50.0" lower="-3.14159265" upper="3.14159265" velocity="3.0"/>
+        <dynamics damping="0.05" friction="0.0"/>
+    </joint>
+
+    <!-- Wrist 1 link -->
+    <link name="wrist_1_link">
+        <visual>
+            <geometry>
+                <cylinder radius="0.035" length="0.08"/>
+            </geometry>
+            <material name="wrist_color">
+                <color rgba="0.5 0.5 0.5 1.0"/>
+            </material>
+        </visual>
+        <collision>
+            <geometry>
+                <cylinder radius="0.035" length="0.08"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <mass value="1.0"/>
+            <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+            <inertia ixx="0.0015" ixy="0.0" ixz="0.0" iyy="0.0015" iyz="0.0" izz="0.0006"/>
+        </inertial>
+    </link>
+
+    <!-- Joint 5: Wrist rotation 2 (around Y-axis for pitch control) -->
+    <joint name="wrist_2_joint" type="revolute">
+        <parent link="wrist_1_link"/>
+        <child link="wrist_2_link"/>
+        <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.04"/>
+        <axis xyz="0 1 0"/>
+        <limit effort="50.0" lower="-1.57079633" upper="1.57079633" velocity="3.0"/>
+        <dynamics damping="0.05" friction="0.0"/>
+    </joint>
+
+    <!-- Wrist 2 link -->
+    <link name="wrist_2_link">
+        <visual>
+            <geometry>
+                <cylinder radius="0.03" length="0.06"/>
+            </geometry>
+            <material name="wrist_color">
+                <color rgba="0.5 0.5 0.5 1.0"/>
+            </material>
+        </visual>
+        <collision>
+            <geometry>
+                <cylinder radius="0.03" length="0.06"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <mass value="0.5"/>
+            <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+            <inertia ixx="0.0006" ixy="0.0" ixz="0.0" iyy="0.0006" iyz="0.0" izz="0.0002"/>
+        </inertial>
+    </link>
+
+    <!-- End-effector joint (fixed) -->
+    <joint name="ee_joint" type="fixed">
+        <parent link="wrist_2_link"/>
+        <child link="ee_link"/>
+        <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.03"/>
+    </joint>
+
+    <!-- End-effector link (microphone) -->
+    <link name="ee_link">
+        <visual>
+            <geometry>
+                <cylinder radius="0.02" length="0.1"/>
+            </geometry>
+            <material name="microphone_color">
+                <color rgba="0.2 0.2 0.2 1.0"/>
+            </material>
+        </visual>
+        <collision>
+            <geometry>
+                <cylinder radius="0.02" length="0.1"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <mass value="0.2"/>
+            <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+            <inertia ixx="0.0002" ixy="0.0" ixz="0.0" iyy="0.0002" iyz="0.0" izz="0.00004"/>
+        </inertial>
+    </link>
+
+    <!-- Transmissions for each joint -->
+    <transmission name="base_rotation_z_trans">
+        <type>transmission_interface/SimpleTransmission</type>
+        <joint name="base_rotation_z">
+            <hardwareInterface>PositionJointInterface</hardwareInterface>
+        </joint>
+        <actuator name="base_rotation_z_motor">
+            <mechanicalReduction>1</mechanicalReduction>
+        </actuator>
+    </transmission>
+
+    <transmission name="shoulder_tilt_y_trans">
+        <type>transmission_interface/SimpleTransmission</type>
+        <joint name="shoulder_tilt_y">
+            <hardwareInterface>PositionJointInterface</hardwareInterface>
+        </joint>
+        <actuator name="shoulder_tilt_y_motor">
+            <mechanicalReduction>1</mechanicalReduction>
+        </actuator>
+    </transmission>
+
+    <transmission name="telescopic_trans">
+        <type>transmission_interface/SimpleTransmission</type>
+        <joint name="telescopic_joint">
+            <hardwareInterface>PositionJointInterface</hardwareInterface>
+        </joint>
+        <actuator name="telescopic_motor">
+            <mechanicalReduction>1</mechanicalReduction>
+        </actuator>
+    </transmission>
+
+    <transmission name="wrist_1_trans">
+        <type>transmission_interface/SimpleTransmission</type>
+        <joint name="wrist_1_joint">
+            <hardwareInterface>PositionJointInterface</hardwareInterface>
+        </joint>
+        <actuator name="wrist_1_motor">
+            <mechanicalReduction>1</mechanicalReduction>
+        </actuator>
+    </transmission>
+
+    <transmission name="wrist_2_trans">
+        <type>transmission_interface/SimpleTransmission</type>
+        <joint name="wrist_2_joint">
+            <hardwareInterface>PositionJointInterface</hardwareInterface>
+        </joint>
+        <actuator name="wrist_2_motor">
+            <mechanicalReduction>1</mechanicalReduction>
+        </actuator>
+    </transmission>
+
+</robot>
