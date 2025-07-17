@@ -4,10 +4,19 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
+        - /Global Options1
         - /Grid1
+        - /Grid1/Offset1
         - /RobotModel1
         - /TF1
         - /TF1/Frames1
+        - /TF1/Tree1/world1
+        - /TF1/Tree1/world1/base_link1
+        - /TF1/Tree1/world1/base_link1/shoulder_link1
+        - /TF1/Tree1/world1/base_link1/shoulder_link1/upper_arm_link1
+        - /TF1/Tree1/world1/base_link1/shoulder_link1/upper_arm_link1/telescopic_link1
+        - /TF1/Tree1/world1/base_link1/shoulder_link1/upper_arm_link1/telescopic_link1/wrist_1_link1
+        - /TF1/Tree1/world1/base_link1/shoulder_link1/upper_arm_link1/telescopic_link1/wrist_1_link1/wrist_2_link1
         - /MarkerArray1
         - /MarkerArray2
       Splitter Ratio: 0.6178160905838013
@@ -39,21 +48,21 @@ Visualization Manager:
   Class: ""
   Displays:
     - Alpha: 1
-      Cell Size: 0.0010000000474974513
+      Cell Size: 0.5
       Class: rviz/Grid
       Color: 190; 190; 194
       Enabled: true
       Line Style:
-        Line Width: 0.029999999329447746
+        Line Width: 0.03
         Value: Lines
       Name: Grid
       Normal Cell Count: 0
       Offset:
-        X: 0
-        Y: 0
-        Z: -4
+        X: 2.5
+        Y: 6
+        Z: 0
       Plane: XY
-      Plane Cell Count: 10000
+      Plane Cell Count: 24
       Reference Frame: world
       Value: true
     - Alpha: 0.5
@@ -172,7 +181,7 @@ Visualization Manager:
   Global Options:
     Background Color: 252; 252; 252
     Default Light: true
-    Fixed Frame: wolrd
+    Fixed Frame: world
     Frame Rate: 30
   Name: root
   Tools:
@@ -196,7 +205,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 1.8755744695663452
+      Distance: 28.46865463256836
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -212,9 +221,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.1947975903749466
+      Pitch: -0.03520241379737854
       Target Frame: base_link
-      Yaw: 3.4879462718963623
+      Yaw: 3.307943344116211
     Saved:
       - Class: rviz/ThirdPersonFollower
         Distance: 2.606315851211548

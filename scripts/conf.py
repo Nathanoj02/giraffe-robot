@@ -16,7 +16,7 @@ frame_name = 'ee_link'       # name of the frame to control (end-effector) in th
 q0 = np.array([
     0.0,   # base_rotation_z: facing forward
     0.2,   # shoulder_tilt_y: slightly pitched down
-    0.5,   # telescopic_joint: halfway extended (range is 0.0 to 2.5)
+    0.0,   # telescopic_joint: retracted
     0.0,   # wrist_1_joint: neutral
     0.0    # wrist_2_joint: neutral
 ])

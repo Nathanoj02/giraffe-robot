@@ -17,7 +17,7 @@ if __name__ == '__main__':
     kin = robotKinematics(robot, conf.frame_name)
 
     ## desired task space position
-    p = np.array([0.5, -0.2, 0.5])
+    p = np.array([0.1, 0.2, -1])
     # initial guess
     q_i = np.zeros(5)
 

@@ -1,14 +1,14 @@
 <?xml version="1.0"?>
 <robot name="giraffe_robot">
 
-    <!-- World link (ceiling mount point) -->
+    <!-- World link at bottom-right corner of the room (floor) -->
     <link name="world"/>
     
-    <!-- Fixed joint to ceiling - robot is mounted at ceiling center -->
+    <!-- Robot mounted to ceiling with origin at (2.5, 6.0, 4.0) -->
     <joint name="world_joint" type="fixed">
         <parent link="world"/>
         <child link="base_link"/>
-        <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+        <origin rpy="0.0 0.0 0.0" xyz="2.5 6.0 4.0"/>
     </joint>
 
     <!-- Base link - ceiling mount -->
