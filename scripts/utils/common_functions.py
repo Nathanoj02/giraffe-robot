@@ -15,7 +15,6 @@ from matplotlib.patches import Polygon
 from matplotlib.collections import PatchCollection
 
 import sys
-from termcolor import colored
 import rospkg
 import rospy as ros
 import rosnode
@@ -81,9 +80,9 @@ class State:
         
 def checkRosMaster():
     if rosgraph.is_master_online():  # Checks the master uri and results boolean (True or False)
-        print(colored('ROS MASTER is Online','red'))
+        print(('ROS MASTER is Online','red'))
     else:
-        print(colored('ROS MASTER is NOT Online, Starting roscore!!','red'))
+        print(('ROS MASTER is NOT Online, Starting roscore!!','red'))
         parent = ROSLaunchParent("roscore", [], is_core=True)  # run_id can be any string
         parent.start()
 
@@ -109,7 +108,7 @@ def startNode(package, executable, args=''):
     nodes = rosnode.get_node_names()
     #kill previous instances
     if package in nodes:
-        print(colored("Re Starting ref generator","red"))
+        print(("Re Starting ref generator","red"))
         os.system("rosnode kill /"+package)
     package = package
     executable = executable
@@ -122,11 +121,11 @@ def startNode(package, executable, args=''):
 
 
 def loadXacro(package_name, model_name):
-    print(colored(f"Loading xacro for  {model_name} inside {package_name}", "blue"))
+    print((f"Loading xacro for  {model_name} inside {package_name}", "blue"))
     # first generate robot description
     xacro_path = rospkg.RosPack().get_path(package_name) + '/robots/' + model_name + '.urdf.xacro'
     if not os.path.isfile(xacro_path):
-        print(colored(f"Xacro file {model_name}.urdf.xacro does not exist!", "red"))
+        print((f"Xacro file {model_name}.urdf.xacro does not exist!", "red"))
     command_string = "rosrun xacro xacro "+xacro_path
 
     try:
@@ -141,7 +140,7 @@ def loadXacro(package_name, model_name):
 def spawnModel(package_name, model_name='',  spawn_pos=np.array([0.,0.,0.]), spawn_orient = np.array([0.,0.,0.]) ):
     #loads the xacro of model in the parameter server
     loadXacro(package_name, model_name)
-    print(colored(f"Spawning {model_name}", "blue"))
+    print((f"Spawning {model_name}", "blue"))
     package = 'gazebo_ros'
     executable = 'spawn_model'
     name = model_name

@@ -1,6 +1,8 @@
 import numpy as np
 import math
 from utils.math_tools import Math
+import pinocchio as pin
+import os
 
 
 def setRobotParameters():
@@ -9,36 +11,77 @@ def setRobotParameters():
 
     Returns:
       lengths: np.array of link offsets [l1..l6]
-      inertia_tensors: np.array of 7 (7 links) 3×3 inertia matrices around each COM
+      inertia_tensors: np.array of 7 (7 links) 3x3 inertia matrices around each COM
       link_masses: np.array of masses for links 0..6
       coms: np.array of COM positions in each link's local frame
     """
-    # Link offsets along the robot's vertical (-Z) axis (meters):
-    l1 = 0.1    # from ceiling mount (base_link) to shoulder joint
-    l2 = 0.075  # from shoulder joint to upper_arm joint
-    l3 = 0.15   # from upper_arm to start of telescopic extension
-    l4 = 0.25   # full stroke of the telescopic link
-    l5 = 0.04   # between wrist_1 and wrist_2 joints
-    l6 = 0.03   # from wrist_2 to end-effector
-    lengths = np.array([l1, l2, l3, l4, l5, l6])
-
-    # Link masses (kg): base (0) through end-effector (6)
-    link_masses = np.array([5.0, 3.0, 4.0, 2.0, 1.0, 0.5, 0.2])
-
-    # Center-of-mass positions in link frames (all at origin here for simplicity)
-    coms = np.zeros((7, 3))
-
-    # Diagonal inertia tensors (kg·m²) about each COM
-    inertia_tensors = np.array([
-        np.diag([0.02,   0.02,   0.025]),   # base_link
-        np.diag([0.015,  0.015,  0.0096]),   # shoulder_link
-        np.diag([0.03,   0.03,   0.0096]),   # upper_arm_link
-        np.diag([0.042,  0.042,  0.0016]),   # telescopic_link
-        np.diag([0.0015, 0.0015, 0.0006]),   # wrist_1_link
-        np.diag([0.0006, 0.0006, 0.0002]),   # wrist_2_link
-        np.diag([0.0002, 0.0002, 0.00004])   # ee_link
+    # Link lengths based on URDF xacro properties
+    lengths = np.array([
+        0.1,    # l1: base_length/2 = 0.2/2
+        0.075,  # l2: shoulder_length/2 = 0.15/2
+        0.4,    # l3: upper_arm_size_z/2 = 0.8/2
+        0.5,    # l4: telescopic_length/2 = 1.0/2
+        0.04,   # l5: wrist1_length/2 = 0.08/2
+        0.08    # l6: wrist2_length/2 + ee_length/2 = 0.06/2 + 0.1/2
     ])
-
+    
+    # Link masses based on URDF xacro properties
+    link_masses = np.array([
+        5.0,  # base_mass
+        3.0,  # shoulder_mass
+        4.0,  # upper_arm_mass
+        2.0,  # telescopic_mass
+        1.0,  # wrist1_mass
+        0.5,  # wrist2_mass
+        0.2   # ee_mass
+    ])
+    
+    # Link dimensions for inertia calculations
+    base_r, base_h = 0.1, 0.2
+    shoulder_r, shoulder_h = 0.08, 0.15
+    upper_arm_x, upper_arm_y, upper_arm_z = 0.12, 0.12, 0.8
+    telescopic_r, telescopic_h = 0.06, 1.0
+    wrist1_r, wrist1_h = 0.035, 0.08
+    wrist2_r, wrist2_h = 0.03, 0.06
+    ee_r, ee_h = 0.02, 0.1
+    
+    # Inertia tensors based on URDF geometry
+    inertia_tensors = np.array([
+        # Cylinder inertia: Ixx=Iyy=m*(3*r²+h²)/12, Izz=m*r²/2
+        # Base link (cylinder)
+        np.diag([link_masses[0]*(3*base_r**2 + base_h**2)/12, 
+                link_masses[0]*(3*base_r**2 + base_h**2)/12,
+                link_masses[0]*base_r**2/2]),
+        # Shoulder link (cylinder)
+        np.diag([link_masses[1]*(3*shoulder_r**2 + shoulder_h**2)/12,
+                link_masses[1]*(3*shoulder_r**2 + shoulder_h**2)/12,
+                link_masses[1]*shoulder_r**2/2]),
+        # Upper arm link (box)
+        # Box inertia: Ixx=m*(y²+z²)/12, Iyy=m*(x²+z²)/12, Izz=m*(x²+y²)/12
+        np.diag([link_masses[2]*(upper_arm_y**2 + upper_arm_z**2)/12,
+                link_masses[2]*(upper_arm_x**2 + upper_arm_z**2)/12,
+                link_masses[2]*(upper_arm_x**2 + upper_arm_y**2)/12]),
+        # Telescopic link (cylinder)
+        np.diag([link_masses[3]*(3*telescopic_r**2 + telescopic_h**2)/12,
+                link_masses[3]*(3*telescopic_r**2 + telescopic_h**2)/12,
+                link_masses[3]*telescopic_r**2/2]),
+        # Wrist1 link (cylinder)
+        np.diag([link_masses[4]*(3*wrist1_r**2 + wrist1_h**2)/12,
+                link_masses[4]*(3*wrist1_r**2 + wrist1_h**2)/12,
+                link_masses[4]*wrist1_r**2/2]),
+        # Wrist2 link (cylinder)
+        np.diag([link_masses[5]*(3*wrist2_r**2 + wrist2_h**2)/12,
+                link_masses[5]*(3*wrist2_r**2 + wrist2_h**2)/12,
+                link_masses[5]*wrist2_r**2/2]),
+        # End-effector link (cylinder)
+        np.diag([link_masses[6]*(3*ee_r**2 + ee_h**2)/12,
+                link_masses[6]*(3*ee_r**2 + ee_h**2)/12,
+                link_masses[6]*ee_r**2/2])
+    ])
+    
+    # Hardcoded centers of mass (assume centered for simplicity)
+    coms = np.zeros((7, 3))
+    
     return lengths, inertia_tensors, link_masses, coms
 
 
@@ -63,12 +106,10 @@ def direct_kinematics(q):
     q1, q2, d3, q4, q5 = q
 
     # 1) Base_link -> Joint1 (rotation q1 about Z)
-    #    a) translate down by l1 along robot Z
     T01_trans = np.array([[1,0,0, 0],
                           [0,1,0, 0],
                           [0,0,1,-l1],
                           [0,0,0, 1]])
-    #    b) rotate about Z by q1
     Rz1 = np.array([[ math.cos(q1), -math.sin(q1), 0, 0],
                     [ math.sin(q1),  math.cos(q1), 0, 0],
                     [             0,              0, 1, 0],
@@ -123,7 +164,7 @@ def direct_kinematics(q):
     T45 = T45_trans.dot(Ry5)
     T05 = T04.dot(T45)
 
-    # 6) Joint5 -> End-effector (fixed)
+    # 6) Joint5 -> End-effector (fixed) - now using l6 from setRobotParameters
     T5e = np.array([[1,0,0,   0],
                     [0,1,0,   0],
                     [0,0,1,-l6],
