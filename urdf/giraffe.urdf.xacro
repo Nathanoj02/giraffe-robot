@@ -1,0 +1,305 @@
+<?xml version="1.0"?>
+<robot name="giraffe_robot" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+    <!-- Properties for easy customization -->
+    <xacro:property name="PI" value="3.14159265"/>
+    <xacro:property name="PI_2" value="1.57079633"/>
+    
+    <!-- Robot mounting position (set to origin for kinematic analysis) -->
+    <xacro:property name="mount_x" value="0.0"/>
+    <xacro:property name="mount_y" value="0.0"/>
+    <xacro:property name="mount_z" value="0.0"/>
+    
+    <!-- Link dimensions -->
+    <xacro:property name="base_radius" value="0.1"/>
+    <xacro:property name="base_length" value="0.2"/>
+    <xacro:property name="shoulder_radius" value="0.08"/>
+    <xacro:property name="shoulder_length" value="0.15"/>
+    <xacro:property name="upper_arm_size_x" value="0.12"/>
+    <xacro:property name="upper_arm_size_y" value="0.12"/>
+    <xacro:property name="upper_arm_size_z" value="0.8"/>
+    <xacro:property name="telescopic_radius" value="0.06"/>
+    <xacro:property name="telescopic_length" value="1.0"/>
+    <xacro:property name="wrist1_radius" value="0.035"/>
+    <xacro:property name="wrist1_length" value="0.08"/>
+    <xacro:property name="wrist2_radius" value="0.03"/>
+    <xacro:property name="wrist2_length" value="0.06"/>
+    <xacro:property name="ee_radius" value="0.02"/>
+    <xacro:property name="ee_length" value="0.1"/>
+    
+    <!-- Joint limits -->
+    <xacro:property name="base_rotation_limit" value="${PI}"/>
+    <xacro:property name="shoulder_tilt_limit" value="${PI_2}"/>
+    <xacro:property name="telescopic_limit" value="6.0"/>
+    <xacro:property name="wrist_rotation_limit" value="${PI}"/>
+    <xacro:property name="wrist_tilt_limit" value="${PI_2}"/>
+    
+    <!-- Mass properties -->
+    <xacro:property name="base_mass" value="5.0"/>
+    <xacro:property name="shoulder_mass" value="3.0"/>
+    <xacro:property name="upper_arm_mass" value="4.0"/>
+    <xacro:property name="telescopic_mass" value="2.0"/>
+    <xacro:property name="wrist1_mass" value="1.0"/>
+    <xacro:property name="wrist2_mass" value="0.5"/>
+    <xacro:property name="ee_mass" value="0.2"/>
+
+    <!-- Material definitions -->
+    <xacro:macro name="material_base">
+        <material name="base_color">
+            <color rgba="0.8 0.8 0.8 1.0"/>
+        </material>
+    </xacro:macro>
+
+    <xacro:macro name="material_shoulder">
+        <material name="shoulder_color">
+            <color rgba="0.7 0.7 0.7 1.0"/>
+        </material>
+    </xacro:macro>
+
+    <xacro:macro name="material_upper_arm">
+        <material name="upper_arm_color">
+            <color rgba="0.6 0.6 0.6 1.0"/>
+        </material>
+    </xacro:macro>
+
+    <xacro:macro name="material_telescopic">
+        <material name="telescopic_color">
+            <color rgba="0.9 0.7 0.2 1.0"/>
+        </material>
+    </xacro:macro>
+
+    <xacro:macro name="material_wrist">
+        <material name="wrist_color">
+            <color rgba="0.5 0.5 0.5 1.0"/>
+        </material>
+    </xacro:macro>
+
+    <xacro:macro name="material_microphone">
+        <material name="microphone_color">
+            <color rgba="0.2 0.2 0.2 1.0"/>
+        </material>
+    </xacro:macro>
+
+    <!-- Inertia macros -->
+    <xacro:macro name="cylinder_inertia" params="m r h">
+        <inertia ixx="${m*(3*r*r + h*h)/12}" ixy="0" ixz="0" 
+                 iyy="${m*(3*r*r + h*h)/12}" iyz="0" 
+                 izz="${m*r*r/2}"/>
+    </xacro:macro>
+
+    <xacro:macro name="box_inertia" params="m x y z">
+        <inertia ixx="${m*(y*y + z*z)/12}" ixy="0" ixz="0"
+                 iyy="${m*(x*x + z*z)/12}" iyz="0"
+                 izz="${m*(x*x + y*y)/12}"/>
+    </xacro:macro>
+
+
+
+    <!-- World link -->
+    <link name="world"/>
+    
+    <!-- Robot mounted to ceiling -->
+    <joint name="world_joint" type="fixed">
+        <parent link="world"/>
+        <child link="base_link"/>
+        <origin rpy="0.0 0.0 0.0" xyz="${mount_x} ${mount_y} ${mount_z}"/>
+    </joint>
+
+    <!-- Base link - ceiling mount -->
+    <link name="base_link">
+        <visual>
+            <geometry>
+                <cylinder radius="${base_radius}" length="${base_length}"/>
+            </geometry>
+            <xacro:material_base/>
+        </visual>
+        <collision>
+            <geometry>
+                <cylinder radius="${base_radius}" length="${base_length}"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <mass value="${base_mass}"/>
+            <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+            <xacro:cylinder_inertia m="${base_mass}" r="${base_radius}" h="${base_length}"/>
+        </inertial>
+    </link>
+
+    <!-- Joint 1: First rotation of spherical joint (around Z-axis) -->
+    <joint name="base_rotation_z" type="revolute">
+        <parent link="base_link"/>
+        <child link="shoulder_link"/>
+        <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 ${-base_length/2}"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="100.0" lower="${-base_rotation_limit}" upper="${base_rotation_limit}" velocity="2.0"/>
+        <dynamics damping="0.1" friction="0.0"/>
+    </joint>
+
+    <!-- Shoulder link -->
+    <link name="shoulder_link">
+        <visual>
+            <geometry>
+                <cylinder radius="${shoulder_radius}" length="${shoulder_length}"/>
+            </geometry>
+            <xacro:material_shoulder/>
+        </visual>
+        <collision>
+            <geometry>
+                <cylinder radius="${shoulder_radius}" length="${shoulder_length}"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <mass value="${shoulder_mass}"/>
+            <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+            <xacro:cylinder_inertia m="${shoulder_mass}" r="${shoulder_radius}" h="${shoulder_length}"/>
+        </inertial>
+    </link>
+
+    <!-- Joint 2: Second rotation of spherical joint (around Y-axis) -->
+    <joint name="shoulder_tilt_y" type="revolute">
+        <parent link="shoulder_link"/>
+        <child link="upper_arm_link"/>
+        <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 ${-shoulder_length/2}"/>
+        <axis xyz="0 1 0"/>
+        <limit effort="100.0" lower="${-shoulder_tilt_limit}" upper="${shoulder_tilt_limit}" velocity="2.0"/>
+        <dynamics damping="0.1" friction="0.0"/>
+    </joint>
+
+    <!-- Upper arm link -->
+    <link name="upper_arm_link">
+        <visual>
+            <geometry>
+                <box size="${upper_arm_size_x} ${upper_arm_size_y} ${upper_arm_size_z}"/>
+            </geometry>
+            <xacro:material_upper_arm/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="${upper_arm_size_x} ${upper_arm_size_y} ${upper_arm_size_z}"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <mass value="${upper_arm_mass}"/>
+            <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+            <xacro:box_inertia m="${upper_arm_mass}" x="${upper_arm_size_x}" y="${upper_arm_size_y}" z="${upper_arm_size_z}"/>
+        </inertial>
+    </link>
+
+    <!-- Joint 3: Prismatic joint for telescopic extension -->
+    <joint name="telescopic_joint" type="prismatic">
+        <parent link="upper_arm_link"/>
+        <child link="telescopic_link"/>
+        <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 ${-upper_arm_size_z/2}"/>
+        <axis xyz="0 0 -1"/>
+        <limit effort="200.0" lower="0.0" upper="${telescopic_limit}" velocity="1.0"/>
+        <dynamics damping="0.2" friction="0.0"/>
+    </joint>
+
+    <!-- Telescopic link -->
+    <link name="telescopic_link">
+        <visual>
+            <geometry>
+                <cylinder radius="${telescopic_radius}" length="${telescopic_length}"/>
+            </geometry>
+            <xacro:material_telescopic/>
+        </visual>
+        <collision>
+            <geometry>
+                <cylinder radius="${telescopic_radius}" length="${telescopic_length}"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <mass value="${telescopic_mass}"/>
+            <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+            <xacro:cylinder_inertia m="${telescopic_mass}" r="${telescopic_radius}" h="${telescopic_length}"/>
+        </inertial>
+    </link>
+
+    <!-- Joint 4: Wrist rotation 1 (around Z-axis) -->
+    <joint name="wrist_1_joint" type="revolute">
+        <parent link="telescopic_link"/>
+        <child link="wrist_1_link"/>
+        <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 ${-telescopic_length/2}"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="50.0" lower="${-wrist_rotation_limit}" upper="${wrist_rotation_limit}" velocity="3.0"/>
+        <dynamics damping="0.05" friction="0.0"/>
+    </joint>
+
+    <!-- Wrist 1 link -->
+    <link name="wrist_1_link">
+        <visual>
+            <geometry>
+                <cylinder radius="${wrist1_radius}" length="${wrist1_length}"/>
+            </geometry>
+            <xacro:material_wrist/>
+        </visual>
+        <collision>
+            <geometry>
+                <cylinder radius="${wrist1_radius}" length="${wrist1_length}"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <mass value="${wrist1_mass}"/>
+            <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+            <xacro:cylinder_inertia m="${wrist1_mass}" r="${wrist1_radius}" h="${wrist1_length}"/>
+        </inertial>
+    </link>
+
+    <!-- Joint 5: Wrist rotation 2 (around Y-axis for pitch control) -->
+    <joint name="wrist_2_joint" type="revolute">
+        <parent link="wrist_1_link"/>
+        <child link="wrist_2_link"/>
+        <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 ${-wrist1_length/2}"/>
+        <axis xyz="0 1 0"/>
+        <limit effort="50.0" lower="${-wrist_tilt_limit}" upper="${wrist_tilt_limit}" velocity="3.0"/>
+        <dynamics damping="0.05" friction="0.0"/>
+    </joint>
+
+    <!-- Wrist 2 link -->
+    <link name="wrist_2_link">
+        <visual>
+            <geometry>
+                <cylinder radius="${wrist2_radius}" length="${wrist2_length}"/>
+            </geometry>
+            <xacro:material_wrist/>
+        </visual>
+        <collision>
+            <geometry>
+                <cylinder radius="${wrist2_radius}" length="${wrist2_length}"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <mass value="${wrist2_mass}"/>
+            <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+            <xacro:cylinder_inertia m="${wrist2_mass}" r="${wrist2_radius}" h="${wrist2_length}"/>
+        </inertial>
+    </link>
+
+    <!-- End-effector joint (fixed) -->
+    <joint name="ee_joint" type="fixed">
+        <parent link="wrist_2_link"/>
+        <child link="ee_link"/>
+        <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 ${-wrist2_length/2}"/>
+    </joint>
+
+    <!-- End-effector link (microphone) -->
+    <link name="ee_link">
+        <visual>
+            <geometry>
+                <cylinder radius="${ee_radius}" length="${ee_length}"/>
+            </geometry>
+            <xacro:material_microphone/>
+        </visual>
+        <collision>
+            <geometry>
+                <cylinder radius="${ee_radius}" length="${ee_length}"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <mass value="${ee_mass}"/>
+            <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+            <xacro:cylinder_inertia m="${ee_mass}" r="${ee_radius}" h="${ee_length}"/>
+        </inertial>
+    </link>
+
+</robot>
