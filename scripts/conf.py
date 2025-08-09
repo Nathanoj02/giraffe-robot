@@ -1,14 +1,7 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Apr 18 09:47:07 2019
-
-@author: Jonathan Fin
-"""
-
 import numpy as np
 
-dt = 0.001                   # controller time step
-SLOW_FACTOR = 1              # to slow down simulation
+dt = 1e-3                    # controller time step
+SLOW_FACTOR = 4              # to slow down simulation
 frame_name = 'ee_link'       # name of the frame to control (end-effector) in the URDF
 
 # Initial Conditions
@@ -24,7 +17,10 @@ q0 = np.array([
 qd0 =  np.zeros(5, dtype=np.float)  # velocity
 qdd0 = np.zeros(5, dtype=np.float)  # accelerations
 
+p_des = np.array([1., 2., 1.])   # desired end-effector position in world frame
+pitch_des = -30.    # desired end-effector pitch in degrees
 
+exp_dyn_duration = 3.0  # duration of the dynamic experiment in seconds
 
 
 

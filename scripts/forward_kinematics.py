@@ -1,8 +1,6 @@
 import numpy as np
 import math
 from utils.math_tools import Math
-import pinocchio as pin
-import os
 
 
 def setRobotParameters():
