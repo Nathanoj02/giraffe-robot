@@ -7,29 +7,62 @@ import conf as conf
 
 from functions.dyn import DynamicSimulator
 
-ros_pub = RosPub("giraffe")
-robot = getRobotModel("giraffe")
-data = robot.data
-model = robot.model
+if __name__ == "__main__":
+    ros_pub = RosPub("giraffe")
+    robot = getRobotModel("giraffe")
+    data = robot.data
+    model = robot.model
 
-kin = robotKinematics(robot, conf.frame_name)
+    kin = robotKinematics(robot, conf.frame_name)
 
-# Initialize robot state
-q = conf.q0.copy()
-qd = conf.qd0.copy()
-qdd = conf.qdd0.copy()
+    # Initialize robot state
+    q = conf.q0.copy()
+    qd = conf.qd0.copy()
+    qdd = conf.qdd0.copy()
 
-q_des = conf.q0.copy() 
-qd_des = conf.qd0.copy()
-qdd_des = conf.qdd0.copy()
+    q_des = conf.q0.copy() 
+    qd_des = conf.qd0.copy()
+    qdd_des = conf.qdd0.copy()
 
-math_utils = Math()
+    math_utils = Math()
 
-t = 0.
+    t = 0.
 
-frame_id = model.getFrameId(conf.frame_name)
+    frame_id = model.getFrameId(conf.frame_name)
 
-simulator = DynamicSimulator(robot, ros_pub)
-logs = simulator.simulate(q, qd, qdd, q_des, qd_des, qdd_des)
+    simulator = DynamicSimulator(robot, ros_pub)
+    logs = simulator.simulate(q, qd, qdd, q_des, qd_des, qdd_des)
 
-ros_pub.deregister_node()
+    ros_pub.deregister_node()
+
+    print("\nGenerating plots...")
+
+    # Create separate figures with adjusted sizes and spacing
+    # TODO FIX CHARTSIZE
+    plt.figure(1, figsize=(14, 8))
+    plotJoint('position', logs['time'], logs['q'], logs['q_des'], 
+            logs['qd'], logs['qd_des'], logs['qdd'], logs['qdd_des'], logs['tau'])
+    plt.title('Joint Positions')
+    plt.tight_layout(pad=3.0)  # Increased padding
+
+    plt.figure(2, figsize=(14, 8))
+    plotJoint('velocity', logs['time'], logs['q'], logs['q_des'], 
+            logs['qd'], logs['qd_des'], logs['qdd'], logs['qdd_des'], logs['tau'])
+    plt.title('Joint Velocities')
+    plt.tight_layout(pad=3.0)
+
+    plt.figure(3, figsize=(14, 8))
+    plotJoint('acceleration', logs['time'], logs['q'], logs['q_des'], 
+            logs['qd'], logs['qd_des'], logs['qdd'], logs['qdd_des'], logs['tau'])
+    plt.title('Joint Accelerations')
+    plt.tight_layout(pad=3.0)
+
+    plt.figure(4, figsize=(14, 8))
+    plotJoint('torque', logs['time'], logs['q'], logs['q_des'], 
+            logs['qd'], logs['qd_des'], logs['qdd'], logs['qdd_des'], logs['tau'])
+    plt.title('Joint Torques')
+    plt.tight_layout(pad=3.0)
+
+    plt.show(block=False)
+    input("Press Enter to continue...")
+    [plt.close(fig) for fig in plt.get_fignums()]  # Close all figures

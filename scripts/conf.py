@@ -17,10 +17,12 @@ q0 = np.array([
 qd0 =  np.zeros(5, dtype=np.float)  # velocity
 qdd0 = np.zeros(5, dtype=np.float)  # accelerations
 
-p_des = np.array([1., 2., 1.])   # desired end-effector position in world frame
+p_des = np.array([1., 2., -3.])   # desired end-effector position in world frame
 pitch_des = -30.    # desired end-effector pitch in degrees
 
-exp_dyn_duration = 3.0  # duration of the dynamic experiment in seconds
+exp_dyn_duration = 3.  # duration of the dynamic experiment in seconds
+exp_duration = 6.       # total duration of the experiment in seconds
+traj_duration = 4.  # duration of the trajectory in seconds
 
 
 

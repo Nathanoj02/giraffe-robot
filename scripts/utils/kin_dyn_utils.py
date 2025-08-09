@@ -1,5 +1,5 @@
 from .math_tools import Math
-from forward_kinematics import compute_jacobian, direct_kinematics, geometric2analyticJacobian
+from functions.forward_kinematics import compute_jacobian, direct_kinematics, geometric2analyticJacobian
 
 import numpy as np
 
