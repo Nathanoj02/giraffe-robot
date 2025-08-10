@@ -5,7 +5,7 @@ from utils.math_tools import Math
 
 import conf as conf
 
-from functions.dyn import DynamicSimulator
+from functions.dynamic_simulator import DynamicSimulator
 
 if __name__ == "__main__":
     ros_pub = RosPub("giraffe")
@@ -37,32 +37,21 @@ if __name__ == "__main__":
 
     print("\nGenerating plots...")
 
-    # Create separate figures with adjusted sizes and spacing
-    # TODO FIX CHARTSIZE
-    plt.figure(1, figsize=(14, 8))
+    plt.figure(1)
     plotJoint('position', logs['time'], logs['q'], logs['q_des'], 
             logs['qd'], logs['qd_des'], logs['qdd'], logs['qdd_des'], logs['tau'])
-    plt.title('Joint Positions')
-    plt.tight_layout(pad=3.0)  # Increased padding
 
-    plt.figure(2, figsize=(14, 8))
+    plt.figure(2)
     plotJoint('velocity', logs['time'], logs['q'], logs['q_des'], 
             logs['qd'], logs['qd_des'], logs['qdd'], logs['qdd_des'], logs['tau'])
-    plt.title('Joint Velocities')
-    plt.tight_layout(pad=3.0)
-
-    plt.figure(3, figsize=(14, 8))
+    plt.figure(3)
     plotJoint('acceleration', logs['time'], logs['q'], logs['q_des'], 
             logs['qd'], logs['qd_des'], logs['qdd'], logs['qdd_des'], logs['tau'])
-    plt.title('Joint Accelerations')
-    plt.tight_layout(pad=3.0)
 
-    plt.figure(4, figsize=(14, 8))
+    plt.figure(4)
     plotJoint('torque', logs['time'], logs['q'], logs['q_des'], 
             logs['qd'], logs['qd_des'], logs['qdd'], logs['qdd_des'], logs['tau'])
-    plt.title('Joint Torques')
-    plt.tight_layout(pad=3.0)
 
-    plt.show(block=False)
+    plt.show()
     input("Press Enter to continue...")
     [plt.close(fig) for fig in plt.get_fignums()]  # Close all figures

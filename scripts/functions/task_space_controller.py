@@ -25,7 +25,7 @@ class TaskSpaceController:
         self.Kd_pitch = 2*np.sqrt(self.Kp_pitch)
         
         # Task 7: Null-space configuration and gains
-        self.q0_postural = conf.q0.copy()  # Can be changed to any preferred configuration
+        self.q0_postural = conf.q0.copy()
         self.Kp_postural = 1.0
         self.Kd_postural = 2.0
 
@@ -37,8 +37,8 @@ class TaskSpaceController:
         return p, rpy, rpy[1]  # position, full rpy, pitch
 
     def initialize_logs(self):
-        """Initialize logging buffers"""
-        buffer_size = int(math.ceil(conf.exp_duration / conf.dt))
+        """Initialize logs"""
+        buffer_size = int(math.ceil(conf.sim_duration / conf.dt))
         return {
             'time': np.zeros(buffer_size),
             'q': np.zeros((self.model.nq, buffer_size)),
@@ -152,7 +152,7 @@ class TaskSpaceController:
         q0_calibrated = self.compute_postural_target(pitch_des_final)
         log_counter = 0
         
-        for t in np.arange(0, conf.exp_duration, conf.dt):
+        for t in np.arange(0, conf.sim_duration, conf.dt):
             if log_counter >= len(logs['time']):
                 break
                 

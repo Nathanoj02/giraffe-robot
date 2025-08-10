@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import pinocchio as pin
 from pinocchio.utils import *
 import numpy as np
@@ -20,7 +19,7 @@ class DynamicSimulator:
         self.q_max = np.array([
             np.pi,        # base_rotation_limit (PI)
             np.pi/2,      # shoulder_tilt_limit (PI_2)
-            6.0,          # telescopic_limit (6.0)
+            6.5,          # telescopic_limit (6.5)
             np.pi,        # wrist_rotation_limit (PI)
             np.pi/2       # wrist_tilt_limit (PI_2)
         ])
@@ -37,7 +36,7 @@ class DynamicSimulator:
         self.damping_coeff = -0.1
         
     def initialize_logs(self, time, q, qd, qdd, q_des, qd_des, qdd_des):
-        """Initialize logging variables with proper dimensions"""
+        """Initialize logging variables"""
         logs = {
             'time': [time],
             'q': [q.copy()],
@@ -86,7 +85,7 @@ class DynamicSimulator:
         q, qd, qdd = q_init.copy(), qd_init.copy(), qdd_init.copy()
         logs = self.initialize_logs(time, q, qd, qdd, q_des, qd_des, qdd_des)
         
-        while (not ros.is_shutdown()) and (time < conf.exp_dyn_duration):
+        while (not ros.is_shutdown()) and (time < conf.dyn_sim_duration):
             # Compute dynamic terms
             M, h, _ = self.compute_dynamic_terms(q, qd)
             

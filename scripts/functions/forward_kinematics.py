@@ -23,7 +23,7 @@ def setRobotParameters():
         0.08    # l6: wrist2_length/2 + ee_length/2 = 0.06/2 + 0.1/2
     ])
     
-    # Link masses based on URDF xacro properties
+    # Link masses based on URDF
     link_masses = np.array([
         5.0,  # base_mass
         3.0,  # shoulder_mass
@@ -77,7 +77,7 @@ def setRobotParameters():
                 link_masses[6]*ee_r**2/2])
     ])
     
-    # Hardcoded centers of mass (assume centered for simplicity)
+    # Centers of mass
     coms = np.zeros((7, 3))
     
     return lengths, inertia_tensors, link_masses, coms
@@ -169,7 +169,17 @@ def direct_kinematics(q):
                     [0,0,0,   1]])
     T0e = T05.dot(T5e)
 
-    return [T01, T02, T03, T04, T05, T0e]
+    # World-to-base transform
+    T_world_base = np.array([
+        [1, 0, 0, 2.5],
+        [0, 1, 0, 6.0],
+        [0, 0, 1, 4.0],
+        [0, 0, 0, 1]
+    ])
+
+    return [
+        T_world_base.dot(T) for T in [T01, T02, T03, T04, T05, T0e]
+      ]
 
 
 # -- Differential Kinematics / Jacobian --

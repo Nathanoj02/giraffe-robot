@@ -6,7 +6,7 @@ import pinocchio as pin
 
 import conf as conf
 
-from functions.task import TaskSpaceController
+from functions.task_space_controller import TaskSpaceController
 
 if __name__ == "__main__":
     ros_pub = RosPub("giraffe")
@@ -55,8 +55,6 @@ if __name__ == "__main__":
 
     print("\nGenerating plots...")
 
-    # Create separate figures with adjusted sizes and spacing
-    # TODO FIX CHARTSIZE
     plt.figure(figsize=(12, 10))
     plt.suptitle("Task Space Control Performance")
     
