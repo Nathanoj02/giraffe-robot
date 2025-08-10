@@ -11,12 +11,18 @@ cd ~/itr_ws
 catkin build
 ```
 
+## 📁 Repo organization
+- 🤖 **`urdf/`** - Robot model
+- 🐍 **`scripts/`** - Main simulations and implementations  
+- 🔧 **`scripts/functions/`** - Core algorithms for project tasks
+- 🛠️ **`scripts/utils/`** - Helper functions and ROS interface
+- 📊 **`report/`** - Project report
+
 ## 🛠️ Useful Commands
 
 ### 👁️ Visualization
 Visualize URDF in RViz
 ```bash
-cd ~/itr_ws/src/giraffe-robot/urdf
 roslaunch giraffe-robot visualize.launch
 ```
 
