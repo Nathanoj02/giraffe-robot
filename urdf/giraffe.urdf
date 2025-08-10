@@ -10,7 +10,7 @@
   <joint name="world_joint" type="fixed">
     <parent link="world"/>
     <child link="base_link"/>
-    <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+    <origin rpy="0.0 0.0 0.0" xyz="2.5 6.0 4.0"/>
   </joint>
   <!-- Base link - ceiling mount -->
   <link name="base_link">

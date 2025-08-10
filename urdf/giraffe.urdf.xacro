@@ -1,14 +1,14 @@
 <?xml version="1.0"?>
 <robot name="giraffe_robot" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-    <!-- Properties for easy customization -->
+    <!-- Properties -->
     <xacro:property name="PI" value="3.14159265"/>
     <xacro:property name="PI_2" value="1.57079633"/>
     
-    <!-- Robot mounting position (set to origin for kinematic analysis) -->
-    <xacro:property name="mount_x" value="0.0"/>
-    <xacro:property name="mount_y" value="0.0"/>
-    <xacro:property name="mount_z" value="0.0"/>
+    <!-- Robot mounting position -->
+    <xacro:property name="mount_x" value="2.5"/>
+    <xacro:property name="mount_y" value="6.0"/>
+    <xacro:property name="mount_z" value="4.0"/>
     
     <!-- Link dimensions -->
     <xacro:property name="base_radius" value="0.1"/>
@@ -30,7 +30,7 @@
     <!-- Joint limits -->
     <xacro:property name="base_rotation_limit" value="${PI}"/>
     <xacro:property name="shoulder_tilt_limit" value="${PI_2}"/>
-    <xacro:property name="telescopic_limit" value="6.0"/>
+    <xacro:property name="telescopic_limit" value="6.5"/> 
     <xacro:property name="wrist_rotation_limit" value="${PI}"/>
     <xacro:property name="wrist_tilt_limit" value="${PI_2}"/>
     
