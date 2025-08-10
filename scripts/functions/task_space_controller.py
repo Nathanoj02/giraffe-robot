@@ -61,7 +61,10 @@ class TaskSpaceController:
             pin.updateFramePlacement(self.model, self.data, self.frame_id)
 
             p_ik = self.data.oMf[self.frame_id].translation
-            pitch_ik = pin.rpy.matrixToRpy(self.data.oMf[self.frame_id].rotation)[1]
+
+            rpy_world = pin.rpy.matrixToRpy(self.data.oMf[self.frame_id].rotation)
+            pitch_ik = rpy_world[1]
+            
             err_4d = np.hstack([p_ik - conf.p_des, pitch_ik - pitch_des_final])
 
             if np.linalg.norm(err_4d) < eps:

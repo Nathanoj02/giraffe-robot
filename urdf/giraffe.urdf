@@ -99,7 +99,7 @@
     <child link="telescopic_link"/>
     <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.4"/>
     <axis xyz="0 0 -1"/>
-    <limit effort="200.0" lower="0.0" upper="6.0" velocity="1.0"/>
+    <limit effort="200.0" lower="0.0" upper="6.5" velocity="1.0"/>
     <dynamics damping="0.2" friction="0.0"/>
   </joint>
   <!-- Telescopic link -->
