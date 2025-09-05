@@ -11,12 +11,28 @@ cd ~/itr_ws
 catkin build
 ```
 
+### Python Setup
+Create a virtual environment
+```bash
+virtualenv .venv -p python3
+```
+
+Activate it
+```bash
+source .venv/bin/activate
+```
+
+Install dependencies
+```bash
+pip install -r requirements.txt
+```
+
 ## 📁 Repo organization
-- 🤖 **`urdf/`** - Robot model
-- 🐍 **`scripts/`** - Main simulations and implementations  
-- 🔧 **`scripts/functions/`** - Core algorithms for project tasks
-- 🛠️ **`scripts/utils/`** - Helper functions and ROS interface
-- 📊 **`report/`** - Project report
+- **`urdf/`** - Robot model
+- **`scripts/`** - Main simulations and implementations  
+- **`scripts/functions/`** - Core algorithms for project tasks
+- **`scripts/utils/`** - Helper functions and ROS interface
+- **`report/`** - Project report
 
 ## 🛠️ Useful Commands
 
@@ -54,13 +70,13 @@ python3 main_task_space.py
 - **Control**: 🎯 Position and orientation control
 
 ## 📋 Tasks Implemented
-1. ➡️ **Forward Kinematics** - Compute end-effector pose
-2. ⬅️ **Inverse Kinematics** - Solve for joint angles
-3. ⚙️ **RNEA Dynamics** - Recursive Newton-Euler Algorithm
-4. 🎯 **Task Space Control** - Cartesian trajectory following
-5. 📈 **Trajectory Generation** - 5th-order polynomials
-6. 🎛️ **PD Control** - Position/orientation control
-7. 🔄 **Null-space Control** - Redundancy resolution
+1. **Forward Kinematics** - Compute end-effector pose
+2. **Inverse Kinematics** - Solve for joint angles
+3. **RNEA Dynamics** - Recursive Newton-Euler Algorithm
+4. **Task Space Control** - Cartesian trajectory following
+5. **Trajectory Generation** - 5th-order polynomials
+6. **PD Control** - Position/orientation control
+7. **Null-space Control** - Redundancy resolution
 
 ## ⚙️ Configuration
 - `scripts/conf.py` - Main configuration file
