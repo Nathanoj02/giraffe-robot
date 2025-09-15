@@ -26,15 +26,25 @@ class TaskSpaceController:
         
         # Task 7: Null-space configuration and gains
         self.q0_postural = conf.q0.copy()
-        self.Kp_postural = 1.0
-        self.Kd_postural = 2.0
+        self.Kp_postural = 10.0  # Higher proportional gain
+        self.Kd_postural = 2.0   # Lower derivative gain (Kp > Kd)
 
     def forward_kinematics(self, q):
         """Compute current end-effector position and orientation"""
         pin.framesForwardKinematics(self.model, self.data, q)
         p = self.data.oMf[self.frame_id].translation.copy()
-        rpy = pin.rpy.matrixToRpy(self.data.oMf[self.frame_id].rotation)
-        return p, rpy, rpy[1]  # position, full rpy, pitch
+
+        # Get rotation matrix in world frame
+        R_world = self.data.oMf[self.frame_id].rotation
+
+        # Extract pitch angle from rotation matrix in cartesian space
+        # The pitch is the angle of the microphone from horizontal (down is positive)
+        # Use atan2 for full range and proper quadrant handling
+        ee_z_axis = R_world[:, 2]  # Z-axis of end-effector in world frame
+        pitch = np.arctan2(-ee_z_axis[2], np.sqrt(ee_z_axis[0]**2 + ee_z_axis[1]**2))
+
+        rpy = pin.rpy.matrixToRpy(R_world)
+        return p, rpy, pitch  # position, full rpy, corrected pitch
 
     def initialize_logs(self):
         """Initialize logs"""
@@ -62,8 +72,10 @@ class TaskSpaceController:
 
             p_ik = self.data.oMf[self.frame_id].translation
 
-            rpy_world = pin.rpy.matrixToRpy(self.data.oMf[self.frame_id].rotation)
-            pitch_ik = rpy_world[1]
+            # Use cartesian space pitch calculation
+            R_world = self.data.oMf[self.frame_id].rotation
+            ee_z_axis = R_world[:, 2]
+            pitch_ik = np.arctan2(-ee_z_axis[2], np.sqrt(ee_z_axis[0]**2 + ee_z_axis[1]**2))
             
             err_4d = np.hstack([p_ik - conf.p_des, pitch_ik - pitch_des_final])
 
@@ -71,9 +83,15 @@ class TaskSpaceController:
                 print(f"IK converged in {i} iterations")
                 break
 
-            J = pin.computeFrameJacobian(self.model, self.data, q_ik, self.frame_id, 
+            J = pin.computeFrameJacobian(self.model, self.data, q_ik, self.frame_id,
                                        pin.LOCAL_WORLD_ALIGNED)
-            J_4d = np.vstack([J[:3, :], J[4, :]])
+            # For IK, use consistent pitch Jacobian
+            R_world = self.data.oMf[self.frame_id].rotation
+            J_pos = J[:3, :]
+            J_angular = J[3:6, :]
+            J_rot_y_world = (R_world.T @ J_angular)[1, :]
+            J_pitch = J_rot_y_world.reshape(1, -1)
+            J_4d = np.vstack([J_pos, J_pitch])
             J_inv = J_4d.T @ np.linalg.inv(J_4d @ J_4d.T + damp * np.eye(4))
             q_ik = pin.integrate(self.model, q_ik, -J_inv @ err_4d * dt_ik)
         else:
@@ -112,7 +130,10 @@ class TaskSpaceController:
         
         # Current state
         p = self.data.oMf[self.frame_id].translation
-        pitch = pin.rpy.matrixToRpy(self.data.oMf[self.frame_id].rotation)[1]
+        # Use cartesian space pitch calculation
+        R_world = self.data.oMf[self.frame_id].rotation
+        ee_z_axis = R_world[:, 2]
+        pitch = np.arctan2(-ee_z_axis[2], np.sqrt(ee_z_axis[0]**2 + ee_z_axis[1]**2))
         J = pin.getFrameJacobian(self.model, self.data, self.frame_id, pin.LOCAL_WORLD_ALIGNED)
         twist = J @ qd
         v, omega = twist[:3], twist[3:]
@@ -121,16 +142,40 @@ class TaskSpaceController:
         pos_error = p_des - p
         vel_error = v_des - v
         pitch_error = pitch_des - pitch
-        pitch_vel_error = pitch_vel_des - omega[1]
+
+        # Calculate pitch velocity correctly in cartesian space
+        # The pitch velocity is the Y-component of angular velocity in world frame
+        omega_world = R_world @ omega  # Transform angular velocity to world frame
+        pitch_vel_current = omega_world[1]  # Y-component gives pitch rate
+        pitch_vel_error = pitch_vel_des - pitch_vel_current
         
         # Task 6: PD control with computed gains
         a_pos_des = a_des + self.Kd_pos @ vel_error + self.Kp_pos @ pos_error
         a_pitch_des = pitch_acc_des + self.Kd_pitch * pitch_vel_error + self.Kp_pitch * pitch_error
         
-        # Task Jacobian (position + pitch)
-        J_task = np.vstack([J[:3, :], J[4, :]])
+        # Task Jacobian (position + pitch in cartesian space)
+        # For pitch control in cartesian space, we need the Jacobian of the pitch angle
+        # pitch = arcsin(-ee_z_axis[2]) where ee_z_axis = R @ [0,0,1]
+        # The Jacobian for pitch is derived from the Y-component of angular velocity in world frame
+        J_pos = J[:3, :]  # Position Jacobian
+
+        # Pitch Jacobian: derivative of pitch w.r.t. joint velocities
+        # For pitch = atan2(-ez[2], sqrt(ez[0]^2 + ez[1]^2))
+        # We need the derivative of this expression w.r.t. joint velocities
+        # This is approximated by the Y-component of angular velocity in world frame
+        # (since pitch rotation is around Y-axis)
+        J_angular = J[3:6, :]  # Angular velocity Jacobian in local frame
+        # Transform to world frame and take Y-component
+        J_rot_y_world = (R_world.T @ J_angular)[1, :]
+        J_pitch = J_rot_y_world.reshape(1, -1)
+
+        J_task = np.vstack([J_pos, J_pitch])
+
+        # Time derivative (simplified approximation)
         Jdot = pin.getFrameJacobianTimeVariation(self.model, self.data, self.frame_id, pin.LOCAL_WORLD_ALIGNED)
-        Jdot_task = np.vstack([Jdot[:3, :], Jdot[4, :]])
+        Jdot_pos = Jdot[:3, :]
+        Jdot_pitch = np.zeros((1, self.model.nv))  # Simplified - assume small changes
+        Jdot_task = np.vstack([Jdot_pos, Jdot_pitch])
         
         # Task 5: Inverse dynamics
         M = pin.crba(self.model, self.data, q)
