@@ -45,10 +45,15 @@ if __name__ == "__main__":
     # Print final pose
     pos_final = data.oMf[frame_id].translation
     rpy_final = pin.rpy.matrixToRpy(data.oMf[frame_id].rotation)
-    
+
+    # Calculate pitch using same method as controller
+    R_world = data.oMf[frame_id].rotation
+    ee_z_axis = R_world[:, 2]
+    pitch_final_cartesian = np.arctan2(-ee_z_axis[2], np.sqrt(ee_z_axis[0]**2 + ee_z_axis[1]**2))
+
     print("\nFinal Position of the End Effector (m):", pos_final)
     print("Final Orientation of the End-Effector (RPY - deg):", np.degrees(rpy_final))
-    print("Pitch final (deg):", np.degrees(rpy_final[1]))
+    print("Pitch final (deg):", np.degrees(pitch_final_cartesian))
     print("Pitch desired (deg):", np.degrees(pitch_des))
 
     ros_pub.deregister_node()
