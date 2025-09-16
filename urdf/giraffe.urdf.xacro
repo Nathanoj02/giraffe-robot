@@ -32,7 +32,7 @@
     <xacro:property name="shoulder_tilt_limit" value="${PI_2}"/>
     <xacro:property name="telescopic_limit" value="6.5"/> 
     <xacro:property name="wrist_rotation_limit" value="${PI}"/>
-    <xacro:property name="wrist_tilt_limit" value="${PI_2}"/>
+    <xacro:property name="wrist_tilt_limit" value="${PI} * 5/6"/>
     
     <!-- Mass properties -->
     <xacro:property name="base_mass" value="5.0"/>

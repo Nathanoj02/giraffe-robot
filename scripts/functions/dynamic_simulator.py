@@ -21,7 +21,7 @@ class DynamicSimulator:
             np.pi/2,      # shoulder_tilt_limit (PI_2)
             2.5,          # floor limit (2.5)
             np.pi,        # wrist_rotation_limit (PI)
-            np.pi/2       # wrist_tilt_limit (PI_2)
+            np.pi*5/6     # wrist_tilt_limit (PI * 5/6)
         ])
 
         self.q_min = np.array([
@@ -29,7 +29,7 @@ class DynamicSimulator:
             -np.pi/2,     # shoulder_tilt_limit (-PI_2)
             0.0,          # telescopic_limit (0.0 - fully retracted)
             -np.pi,       # wrist_rotation_limit (-PI)
-            -np.pi/2      # wrist_tilt_limit (-PI_2)
+            -np.pi*5/6   # wrist_tilt_limit (-PI * 5/6)
         ])
         
         # Damping coefficient (reduced for stability)

@@ -159,7 +159,7 @@
     <child link="wrist_2_link"/>
     <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.04"/>
     <axis xyz="0 1 0"/>
-    <limit effort="50.0" lower="-1.57079633" upper="1.57079633" velocity="3.0"/>
+    <limit effort="50.0" lower="-2.61799388" upper="2.61799388" velocity="3.0"/>
     <dynamics damping="0.05" friction="0.0"/>
   </joint>
   <!-- Wrist 2 link -->
