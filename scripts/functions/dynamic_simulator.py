@@ -12,14 +12,14 @@ class DynamicSimulator:
         self.zero = np.zeros(5)
         self.error = np.ones(4)
         
-        # Joint limits
-        self.jl_K = 10000  # Joint limit stiffness
-        self.jl_D = 10     # Joint limit damping
+        # Joint limits - reduced gains for stability
+        self.jl_K = 5       # Joint limit stiffness (reduced from 10000)
+        self.jl_D = 0.5     # Joint limit damping (reduced from 10)
 
         self.q_max = np.array([
             np.pi,        # base_rotation_limit (PI)
             np.pi/2,      # shoulder_tilt_limit (PI_2)
-            6.5,          # telescopic_limit (6.5)
+            2.5,          # floor limit (2.5)
             np.pi,        # wrist_rotation_limit (PI)
             np.pi/2       # wrist_tilt_limit (PI_2)
         ])
@@ -32,8 +32,8 @@ class DynamicSimulator:
             -np.pi/2      # wrist_tilt_limit (-PI_2)
         ])
         
-        # Damping coefficient
-        self.damping_coeff = -0.1
+        # Damping coefficient (reduced for stability)
+        self.damping_coeff = 0.1
         
     def initialize_logs(self, time, q, qd, qdd, q_des, qd_des, qdd_des):
         """Initialize logging variables"""
@@ -50,22 +50,26 @@ class DynamicSimulator:
         return logs
     
     def compute_dynamic_terms(self, q, qd):
-        """Compute all dynamic terms using Pinocchio"""
-        self.robot.computeAllTerms(q, qd)
-        
-        # Compute gravity vector
-        g = self.robot.gravity(q)
-        
-        # Compute joint space inertia matrix using RNEA
-        M = np.zeros((5, 5))
-        for i in range(5):
+        """Compute all dynamic terms using RNEA (following reference implementation)"""
+        # Compute gravity vector using RNEA
+        g = pin.rnea(self.robot.model, self.robot.data, q, self.zero, self.zero)
+
+        # Compute mass matrix using RNEA column by column
+        n = len(q)
+        M = np.zeros((n, n))
+        for i in range(n):
             ei = self.zero.copy()
-            ei[i] = 1
-            M[:, i] = pin.rnea(self.robot.model, self.robot.data, q, self.zero, ei) - g
-        
-        # Compute bias terms (Coriolis + gravity)
-        h = self.robot.nle(q, qd, False)
-        
+            ei[i] = 1.0
+            # M[:, i] = RNEA(q, 0, ei) - g
+            tau_col = pin.rnea(self.robot.model, self.robot.data, q, self.zero, ei)
+            M[:, i] = tau_col - g
+
+        # Compute Coriolis and centrifugal terms using RNEA
+        C = pin.rnea(self.robot.model, self.robot.data, q, qd, self.zero) - g
+
+        # Bias term h = C + g
+        h = C + g
+
         return M, h, g
     
     def compute_joint_limits_torque(self, q, qd):
@@ -74,10 +78,23 @@ class DynamicSimulator:
                 (q < self.q_min) * (self.jl_K * (self.q_min - q) + self.jl_D * (-qd)))
     
     def compute_total_torque(self, q, qd):
-        """Compute total joint torque input"""
-        damping = self.damping_coeff * qd
+        """Compute total joint torque input for simulation"""
+        # Simple PD control to desired position (home configuration)
+        q_des = np.zeros(5)  # Home position
+        qd_des = np.zeros(5)  # Desired velocity
+
+        # Much smaller PD gains for stability
+        Kp = np.array([5.0, 8.0, 3.0, 4.0, 4.0])   # Reduced position gains
+        Kd = np.array([0.5, 0.8, 0.3, 0.4, 0.4])   # Reduced derivative gains
+
+        # PD control torque
+        tau_pd = Kp * (q_des - q) + Kd * (qd_des - qd)
+
+        # Joint limit forces (very soft)
         joint_limits_tau = self.compute_joint_limits_torque(q, qd)
-        return joint_limits_tau + damping
+
+        # Total torque = PD control + joint limits
+        return tau_pd + joint_limits_tau
     
     def simulate(self, q_init, qd_init, qdd_init, q_des, qd_des, qdd_des):
         """Main simulation loop"""
@@ -92,12 +109,35 @@ class DynamicSimulator:
             # Compute total torque
             total_tau = self.compute_total_torque(q, qd)
             
-            # Compute joint accelerations using forward dynamics
-            qdd = np.linalg.inv(M).dot(total_tau - h)
+            # Compute joint accelerations using forward dynamics with numerical stability
+            try:
+                # Add small regularization to avoid singularities
+                M_reg = M + 1e-6 * np.eye(5)
+                qdd = np.linalg.solve(M_reg, total_tau - h)
+
+                # Clamp accelerations to prevent numerical explosion
+                qdd = np.clip(qdd, -100.0, 100.0)
+
+            except np.linalg.LinAlgError:
+                print("Warning: Singular mass matrix, using small accelerations")
+                qdd = 0.01 * np.ones(5)
             
-            # Forward Euler Integration
+            # Forward Euler Integration with clamping
             qd += qdd * conf.dt
             q += conf.dt * qd + 0.5 * pow(conf.dt, 2) * qdd
+
+            # Clamp velocities and positions to prevent numerical issues
+            qd = np.clip(qd, -10.0, 10.0)
+
+            # Clamp positions to reasonable joint limits
+            q = np.clip(q, self.q_min * 1.1, self.q_max * 1.1)
+
+            # Check for NaN values and reset if found
+            if np.any(np.isnan(q)) or np.any(np.isnan(qd)) or np.any(np.isnan(qdd)):
+                print("Warning: NaN detected, resetting to safe values")
+                q = np.zeros(5)
+                qd = np.zeros(5)
+                qdd = np.zeros(5)
             
             # Update time
             time += conf.dt

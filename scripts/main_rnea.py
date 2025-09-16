@@ -15,12 +15,12 @@ if __name__ == "__main__":
 
     kin = robotKinematics(robot, conf.frame_name)
 
-    # Initialize robot state
-    q = conf.q0.copy()
-    qd = conf.qd0.copy()
+    # Initialize robot state with conservative displacement
+    q = np.array([0.1, -0.05, 0.2, 0.08, -0.05])  # Small displacement from home
+    qd = np.array([0.0, 0.0, 0.0, 0.0, 0.0])       # Start from rest
     qdd = conf.qdd0.copy()
 
-    q_des = conf.q0.copy() 
+    q_des = conf.q0.copy()
     qd_des = conf.qd0.copy()
     qdd_des = conf.qdd0.copy()
 
@@ -37,20 +37,25 @@ if __name__ == "__main__":
 
     print("\nGenerating plots...")
 
-    plt.figure(1)
-    plotJoint('position', logs['time'], logs['q'], logs['q_des'], 
-            logs['qd'], logs['qd_des'], logs['qdd'], logs['qdd_des'], logs['tau'])
+    # Close any existing figures first
+    plt.close('all')
 
-    plt.figure(2)
-    plotJoint('velocity', logs['time'], logs['q'], logs['q_des'], 
+    # Create plots directly without pre-creating figures
+    plotJoint('position', logs['time'], logs['q'], logs['q_des'],
             logs['qd'], logs['qd_des'], logs['qdd'], logs['qdd_des'], logs['tau'])
-    plt.figure(3)
-    plotJoint('acceleration', logs['time'], logs['q'], logs['q_des'], 
-            logs['qd'], logs['qd_des'], logs['qdd'], logs['qdd_des'], logs['tau'])
+    plt.suptitle('Joint Positions')
 
-    plt.figure(4)
-    plotJoint('torque', logs['time'], logs['q'], logs['q_des'], 
+    plotJoint('velocity', logs['time'], logs['q'], logs['q_des'],
             logs['qd'], logs['qd_des'], logs['qdd'], logs['qdd_des'], logs['tau'])
+    plt.suptitle('Joint Velocities')
+
+    plotJoint('acceleration', logs['time'], logs['q'], logs['q_des'],
+            logs['qd'], logs['qd_des'], logs['qdd'], logs['qdd_des'], logs['tau'])
+    plt.suptitle('Joint Accelerations')
+
+    plotJoint('torque', logs['time'], logs['q'], logs['q_des'],
+            logs['qd'], logs['qd_des'], logs['qdd'], logs['qdd_des'], logs['tau'])
+    plt.suptitle('Joint Torques')
 
     plt.show()
     input("Press Enter to continue...")
