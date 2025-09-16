@@ -17,7 +17,7 @@ q0 = np.array([
 qd0 =  np.zeros(5, dtype=float)  # velocity
 qdd0 = np.zeros(5, dtype=float)  # accelerations
 
-p_des = np.array([1., 2., 1.])   # desired end-effector position in world frame
+p_des = np.array([1, 2, 1])   # desired end-effector position in world frame
 pitch_des = 30    # desired end-effector pitch in degrees
 
 dyn_sim_duration = 3.   # duration of the dynamic simulation in seconds

@@ -83,6 +83,7 @@ if __name__ == "__main__":
     plt.grid(True)
     
     plt.tight_layout(rect=[0, 0, 1, 0.96])
-    plt.show()
-    input("Press Enter to continue...")
+    plt.savefig('task_space_results.png', dpi=300, bbox_inches='tight')
+    print("Plot saved to 'task_space_results.png'")
+    # plt.show()  # Commented out for automated runs
     [plt.close(fig) for fig in plt.get_fignums()]  # Close all figures
