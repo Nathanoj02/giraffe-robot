@@ -85,5 +85,6 @@ if __name__ == "__main__":
     plt.tight_layout(rect=[0, 0, 1, 0.96])
     plt.savefig('task_space_results.png', dpi=300, bbox_inches='tight')
     print("Plot saved to 'task_space_results.png'")
-    # plt.show()  # Commented out for automated runs
+    input("Press Enter to close plots and exit...")
+
     [plt.close(fig) for fig in plt.get_fignums()]  # Close all figures

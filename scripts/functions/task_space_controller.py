@@ -16,21 +16,44 @@ class TaskSpaceController:
         self.ros_pub = ros_pub
         self.frame_id = model.getFrameId(conf.frame_name)
         
-        # PD gains for critical damping with 7s settling time
+        # Further increased damping to eliminate overshoot
         ts = 7.0  # settling time
-        omega_n = 4.0 / ts  # Natural frequency
+        damping_ratio = 1.3  # More overdamped (1.3 instead of 1.1)
         
-        # Critical damping gains (Kd = 2 * sqrt(Kp))
-        self.Kp_pos = np.eye(3) * omega_n**2
-        self.Kd_pos = np.eye(3) * 2 * omega_n
+        # Position gains
+        omega_n_pos = 4.0 / (ts * damping_ratio)
+        self.Kp_pos = np.eye(3) * omega_n_pos**2
+        self.Kd_pos = np.eye(3) * 2 * damping_ratio * omega_n_pos
         
-        self.Kp_pitch = omega_n**2
-        self.Kd_pitch = 2 * omega_n
+        # Pitch gains
+        omega_n_pitch = 4.0 / (ts * damping_ratio)
+        self.Kp_pitch = omega_n_pitch**2
+        self.Kd_pitch = 2 * damping_ratio * omega_n_pitch
         
-        # Null-space configuration and gains
+        # Integral gains (small to prevent windup)
+        self.Ki_pos = np.eye(3) * omega_n_pos**2 * 0.1
+        self.Ki_pitch = omega_n_pitch**2 * 0.1
+        
+        # Error integrals
+        self.pos_error_integral = np.zeros(3)
+        self.pitch_error_integral = 0.0
+        
+        # Further reduced null-space gains
         self.q0_postural = conf.q0.copy()
-        self.Kp_postural = 5.0
+        self.Kp_postural = 2.0  # Even lower
         self.Kd_postural = 2.0 * np.sqrt(self.Kp_postural)
+        
+        # Filter initialization
+        self.vel_prev = np.zeros(3)
+        self.pitch_vel_prev = 0.0
+        self.alpha = 0.9  # Stronger filtering
+        
+        # Deadband and anti-windup
+        self.deadband = 0.002
+        self.integral_limit = 0.5  # Limit for integral term to prevent windup
+        
+        # Error-based gain scheduling
+        self.error_threshold = 0.01  # Reduce gains when error is below this
 
     def forward_kinematics(self, q):
         """Compute current end-effector position and orientation"""
@@ -41,9 +64,7 @@ class TaskSpaceController:
         R = self.data.oMf[self.frame_id].rotation
         
         # For microphone: pitch is rotation around world Y-axis
-        # When pitch=0, microphone is horizontal
-        # Positive pitch tilts upward, negative pitch tilts downward
-        pitch = np.arcsin(-R[2, 2])  # Simplified approach for pitch around Y-axis
+        pitch = np.arcsin(-R[2, 2])
         
         return p, pitch
 
@@ -139,21 +160,56 @@ class TaskSpaceController:
         twist = J @ qd
         v, omega = twist[:3], twist[3:]
         
-        # Task space errors
-        pos_error = p_des - p
-        vel_error = v_des - v
-        
-        # Pitch error calculation
-        pitch_error = pitch_des - pitch
-        
         # Compute pitch velocity (rotation around world Y-axis)
         J_angular = J[3:6, :]
         pitch_vel_current = (R.T @ J_angular @ qd)[1]
-        pitch_vel_error = pitch_vel_des - pitch_vel_current
         
-        # PD control with computed gains
-        a_pos_des = a_des + self.Kd_pos @ vel_error + self.Kp_pos @ pos_error
-        a_pitch_des = pitch_acc_des + self.Kd_pitch * pitch_vel_error + self.Kp_pitch * pitch_error
+        # Apply low-pass filtering to velocity estimates
+        v_filtered = self.alpha * self.vel_prev + (1 - self.alpha) * v
+        pitch_vel_current_filtered = self.alpha * self.pitch_vel_prev + (1 - self.alpha) * pitch_vel_current
+        
+        # Update previous values for next iteration
+        self.vel_prev = v_filtered
+        self.pitch_vel_prev = pitch_vel_current_filtered
+        
+        # Task space errors
+        pos_error = p_des - p
+        vel_error = v_des - v_filtered
+        
+        # Pitch error calculation
+        pitch_error = pitch_des - pitch
+        pitch_vel_error = pitch_vel_des - pitch_vel_current_filtered
+        
+        # Error-based gain scheduling
+        pos_error_norm = np.linalg.norm(pos_error)
+        pitch_error_abs = abs(pitch_error)
+        
+        # Reduce gains when close to target to prevent overshoot
+        if pos_error_norm < self.error_threshold:
+            Kp_pos_effective = self.Kp_pos * (pos_error_norm / self.error_threshold)
+            Kd_pos_effective = self.Kd_pos * (pos_error_norm / self.error_threshold)
+        else:
+            Kp_pos_effective = self.Kp_pos
+            Kd_pos_effective = self.Kd_pos
+            
+        if pitch_error_abs < self.error_threshold:
+            Kp_pitch_effective = self.Kp_pitch * (pitch_error_abs / self.error_threshold)
+            Kd_pitch_effective = self.Kd_pitch * (pitch_error_abs / self.error_threshold)
+        else:
+            Kp_pitch_effective = self.Kp_pitch
+            Kd_pitch_effective = self.Kd_pitch
+        
+        # Update integral terms with anti-windup
+        self.pos_error_integral += pos_error * conf.dt
+        self.pitch_error_integral += pitch_error * conf.dt
+        
+        # Limit integral terms to prevent windup
+        self.pos_error_integral = np.clip(self.pos_error_integral, -self.integral_limit, self.integral_limit)
+        self.pitch_error_integral = np.clip(self.pitch_error_integral, -self.integral_limit, self.integral_limit)
+        
+        # PD control with computed gains and integral term
+        a_pos_des = a_des + Kd_pos_effective @ vel_error + Kp_pos_effective @ pos_error + self.Ki_pos @ self.pos_error_integral
+        a_pitch_des = pitch_acc_des + Kd_pitch_effective * pitch_vel_error + Kp_pitch_effective * pitch_error + self.Ki_pitch * self.pitch_error_integral
         
         # Task Jacobian (position + pitch)
         J_pos = J[:3, :]
@@ -184,6 +240,11 @@ class TaskSpaceController:
         qdd_des = np.linalg.inv(M) @ J_task.T @ Lambda_task @ (a_task - Jdot_task @ qd) + N_task @ q_postural
         tau = M @ qdd_des + h
         
+        # Apply deadband to prevent small oscillations
+        tau_norm = np.linalg.norm(tau)
+        if tau_norm < self.deadband:
+            tau = np.zeros_like(tau)
+
         return tau
 
     def simulate(self, pitch_des_final):
@@ -192,6 +253,10 @@ class TaskSpaceController:
         q, qd = conf.q0.copy(), np.zeros(self.model.nv)
         q0_calibrated = self.compute_postural_target(pitch_des_final)
         log_counter = 0
+        
+        # Reset integrals at start of simulation
+        self.pos_error_integral = np.zeros(3)
+        self.pitch_error_integral = 0.0
         
         for t in np.arange(0, conf.sim_duration, conf.dt):
             if log_counter >= len(logs['time']):
