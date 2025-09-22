@@ -16,9 +16,8 @@ class TaskSpaceController:
         self.ros_pub = ros_pub
         self.frame_id = model.getFrameId(conf.frame_name)
         
-        # Further increased damping to eliminate overshoot
         ts = 7.0  # settling time
-        damping_ratio = 1.3  # More overdamped (1.3 instead of 1.1)
+        damping_ratio = 1.3  # overdamped
         
         # Position gains
         omega_n_pos = 4.0 / (ts * damping_ratio)
@@ -38,15 +37,15 @@ class TaskSpaceController:
         self.pos_error_integral = np.zeros(3)
         self.pitch_error_integral = 0.0
         
-        # Further reduced null-space gains
+        # Null-space gains
         self.q0_postural = conf.q0.copy()
-        self.Kp_postural = 2.0  # Even lower
+        self.Kp_postural = 2.0
         self.Kd_postural = 2.0 * np.sqrt(self.Kp_postural)
         
         # Filter initialization
         self.vel_prev = np.zeros(3)
         self.pitch_vel_prev = 0.0
-        self.alpha = 0.9  # Stronger filtering
+        self.alpha = 0.9
         
         # Deadband and anti-windup
         self.deadband = 0.002

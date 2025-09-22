@@ -15,14 +15,16 @@ if __name__ == "__main__":
 
     kin = robotKinematics(robot, conf.frame_name)
 
-    # Initialize robot state with conservative displacement
-    q = np.array([0.1, -0.05, 0.2, 0.08, -0.05])  # Small displacement from home
-    qd = np.array([0.0, 0.0, 0.0, 0.0, 0.0])       # Start from rest
+    # Initialize robot state with extended configuration
+    # [base_rot, shoulder_tilt, prismatic_extension, wrist_rot, wrist_tilt]
+    q = np.array([0.5, -0.3, 1.0, 0.4, -0.2])     # Extended configuration (1m prismatic)
+    qd = conf.qd0.copy()
     qdd = conf.qdd0.copy()
 
-    q_des = conf.q0.copy()
-    qd_des = conf.qd0.copy()
-    qdd_des = conf.qdd0.copy()
+    # Target: home configuration [0, 0, 0, 0, 0]
+    q_des = np.zeros(5)    # Home position
+    qd_des = conf.qd0.copy()    # Zero velocity at target
+    qdd_des = conf.qdd0.copy()  # Zero acceleration at target
 
     math_utils = Math()
 
@@ -40,23 +42,30 @@ if __name__ == "__main__":
     # Close any existing figures first
     plt.close('all')
 
-    # Create plots directly without pre-creating figures
+    # Create plots
     plotJoint('position', logs['time'], logs['q'], logs['q_des'],
             logs['qd'], logs['qd_des'], logs['qdd'], logs['qdd_des'], logs['tau'])
-    plt.suptitle('Joint Positions')
+    plt.suptitle('Joint Positions - Gravity Compensation Control')
 
     plotJoint('velocity', logs['time'], logs['q'], logs['q_des'],
             logs['qd'], logs['qd_des'], logs['qdd'], logs['qdd_des'], logs['tau'])
-    plt.suptitle('Joint Velocities')
+    plt.suptitle('Joint Velocities - Gravity Compensation Control')
 
     plotJoint('acceleration', logs['time'], logs['q'], logs['q_des'],
             logs['qd'], logs['qd_des'], logs['qdd'], logs['qdd_des'], logs['tau'])
-    plt.suptitle('Joint Accelerations')
+    plt.suptitle('Joint Accelerations - Gravity Compensation Control')
 
     plotJoint('torque', logs['time'], logs['q'], logs['q_des'],
             logs['qd'], logs['qd_des'], logs['qdd'], logs['qdd_des'], logs['tau'])
-    plt.suptitle('Joint Torques')
+    plt.suptitle('Joint Torques - Gravity Compensation Control')
 
-    plt.show()
-    input("Press Enter to continue...")
+    plt.show(block=False)
+
+    print("\nGravity compensation simulation completed!")
+    print(f"Started from: {q} (extended configuration)")
+    print(f"Ended at: {logs['q'][:, -1]} (final configuration)")
+    print(f"Target was: {q_des} (home configuration)")
+
+    input("Press Enter to close all figures...")
+
     [plt.close(fig) for fig in plt.get_fignums()]  # Close all figures
