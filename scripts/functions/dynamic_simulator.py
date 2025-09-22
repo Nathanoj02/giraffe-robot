@@ -79,9 +79,9 @@ class DynamicSimulator:
         # Compute gravity vector using RNEA
         g = pin.rnea(self.robot.model, self.robot.data, q, self.zero, self.zero)
 
-        # PD gains for smooth motion to home position
-        Kp = np.array([8.0, 10.0, 5.0, 6.0, 6.0])   # Position gains
-        Kd = np.array([2.0, 2.5, 1.5, 2.0, 2.0])    # Derivative gains
+        # PD gains scaled by joint inertia (lower gains for low-inertia wrist joints)
+        Kp = np.array([8.0, 10.0, 5.0, 2.0, 1.5])   # Reduced gains for wrist joints
+        Kd = np.array([2.0, 2.5, 1.5, 1.0, 0.8])    # Reduced damping for wrist joints
 
         # PD control torque
         tau_pd = Kp * (q_des - q) + Kd * (qd_des - qd)

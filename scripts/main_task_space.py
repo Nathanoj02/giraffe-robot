@@ -83,8 +83,13 @@ if __name__ == "__main__":
     plt.grid(True)
     
     plt.tight_layout(rect=[0, 0, 1, 0.96])
-    plt.savefig('task_space_results.png', dpi=300, bbox_inches='tight')
-    print("Plot saved to 'task_space_results.png'")
+
+    # Create plots directory in parent folder if it doesn't exist
+    import os
+    os.makedirs('../plots', exist_ok=True)
+
+    plt.savefig('../plots/task_space_results.png', dpi=300, bbox_inches='tight')
+    print("Plot saved to '../plots/task_space_results.png'")
     input("Press Enter to close plots and exit...")
 
     [plt.close(fig) for fig in plt.get_fignums()]  # Close all figures

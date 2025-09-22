@@ -39,25 +39,49 @@ if __name__ == "__main__":
 
     print("\nGenerating plots...")
 
+    # Create plots directory in parent folder if it doesn't exist
+    import os
+    os.makedirs('../plots', exist_ok=True)
+
     # Close any existing figures first
     plt.close('all')
 
     # Create plots
+    joint_names = ['Base Rot', 'Shoulder', 'Prismatic', 'Wrist1', 'Wrist2']
+
     plotJoint('position', logs['time'], logs['q'], logs['q_des'],
-            logs['qd'], logs['qd_des'], logs['qdd'], logs['qdd_des'], logs['tau'])
-    plt.suptitle('Joint Positions - Gravity Compensation Control')
+            logs['qd'], logs['qd_des'], logs['qdd'], logs['qdd_des'], logs['tau'],
+            joint_names=joint_names, title='Joint Positions - Gravity Compensation Control')
+    plt.gcf().set_size_inches(14, 10)
+    plt.tight_layout()
+    plt.subplots_adjust(left=0.15, bottom=0.12, right=0.95, top=0.92)
+    plt.savefig('../plots/gravity_compensation_positions.png', dpi=300, bbox_inches='tight')
 
     plotJoint('velocity', logs['time'], logs['q'], logs['q_des'],
-            logs['qd'], logs['qd_des'], logs['qdd'], logs['qdd_des'], logs['tau'])
-    plt.suptitle('Joint Velocities - Gravity Compensation Control')
+            logs['qd'], logs['qd_des'], logs['qdd'], logs['qdd_des'], logs['tau'],
+            joint_names=joint_names, title='Joint Velocities - Gravity Compensation Control')
+    plt.gcf().set_size_inches(14, 10)
+    plt.tight_layout()
+    plt.subplots_adjust(left=0.15, bottom=0.12, right=0.95, top=0.92)
+    plt.savefig('../plots/gravity_compensation_velocities.png', dpi=300, bbox_inches='tight')
 
     plotJoint('acceleration', logs['time'], logs['q'], logs['q_des'],
-            logs['qd'], logs['qd_des'], logs['qdd'], logs['qdd_des'], logs['tau'])
-    plt.suptitle('Joint Accelerations - Gravity Compensation Control')
+            logs['qd'], logs['qd_des'], logs['qdd'], logs['qdd_des'], logs['tau'],
+            joint_names=joint_names, title='Joint Accelerations - Gravity Compensation Control')
+    plt.gcf().set_size_inches(14, 10)
+    plt.tight_layout()
+    plt.subplots_adjust(left=0.15, bottom=0.12, right=0.95, top=0.92)
+    plt.savefig('../plots/gravity_compensation_accelerations.png', dpi=300, bbox_inches='tight')
 
     plotJoint('torque', logs['time'], logs['q'], logs['q_des'],
-            logs['qd'], logs['qd_des'], logs['qdd'], logs['qdd_des'], logs['tau'])
-    plt.suptitle('Joint Torques - Gravity Compensation Control')
+            logs['qd'], logs['qd_des'], logs['qdd'], logs['qdd_des'], logs['tau'],
+            joint_names=joint_names, title='Joint Torques - Gravity Compensation Control')
+    plt.gcf().set_size_inches(14, 10)
+    plt.tight_layout()
+    plt.subplots_adjust(left=0.15, bottom=0.12, right=0.95, top=0.92)
+    plt.savefig('../plots/gravity_compensation_torques.png', dpi=300, bbox_inches='tight')
+
+    print("Plots saved to ../plots/ folder")
 
     plt.show(block=False)
 
