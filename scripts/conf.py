@@ -22,7 +22,7 @@ pitch_des = 30    # desired end-effector pitch in degrees
 
 dyn_sim_duration = 3.   # duration of the dynamic simulation in seconds
 sim_duration = 7.       # total duration of the simulation in seconds
-traj_duration = 4.      # duration of the trajectory in seconds
+traj_duration = sim_duration  # duration of the trajectory in seconds
 
 
 

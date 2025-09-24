@@ -17,17 +17,16 @@ class TaskSpaceController:
         self.frame_id = model.getFrameId(conf.frame_name)
         
         ts = 7.0  # settling time
-        damping_ratio = 1.3  # overdamped
         
         # Position gains
-        omega_n_pos = 4.0 / (ts * damping_ratio)
+        omega_n_pos = 4.0 / ts
         self.Kp_pos = np.eye(3) * omega_n_pos**2
-        self.Kd_pos = np.eye(3) * 2 * damping_ratio * omega_n_pos
+        self.Kd_pos = np.eye(3) * 2 * omega_n_pos
         
         # Pitch gains
-        omega_n_pitch = 4.0 / (ts * damping_ratio)
+        omega_n_pitch = 4.0 / ts
         self.Kp_pitch = omega_n_pitch**2
-        self.Kd_pitch = 2 * damping_ratio * omega_n_pitch
+        self.Kd_pitch = 2 * omega_n_pitch
         
         # Integral gains (small to prevent windup)
         self.Ki_pos = np.eye(3) * omega_n_pos**2 * 0.1
@@ -246,24 +245,56 @@ class TaskSpaceController:
 
         return tau
 
+    def precompute_trajectory(self, pitch_des_final):
+        """Pre-compute entire trajectory before simulation"""
+        time_steps = np.arange(0, conf.sim_duration, conf.dt)
+        trajectory = {
+            'p_des': np.zeros((3, len(time_steps))),
+            'v_des': np.zeros((3, len(time_steps))),
+            'a_des': np.zeros((3, len(time_steps))),
+            'pitch_des': np.zeros(len(time_steps)),
+            'pitch_vel_des': np.zeros(len(time_steps)),
+            'pitch_acc_des': np.zeros(len(time_steps))
+        }
+
+        for i, t in enumerate(time_steps):
+            p_des, v_des, a_des, pitch_des, pitch_vel_des, pitch_acc_des = \
+                self.generate_trajectory(t, pitch_des_final)
+
+            trajectory['p_des'][:, i] = p_des
+            trajectory['v_des'][:, i] = v_des
+            trajectory['a_des'][:, i] = a_des
+            trajectory['pitch_des'][i] = pitch_des
+            trajectory['pitch_vel_des'][i] = pitch_vel_des
+            trajectory['pitch_acc_des'][i] = pitch_acc_des
+
+        return trajectory
+
     def simulate(self, pitch_des_final):
         """Main simulation loop"""
         logs = self.initialize_logs()
         q, qd = conf.q0.copy(), np.zeros(self.model.nv)
         q0_calibrated = self.compute_postural_target(pitch_des_final)
         log_counter = 0
-        
+
         # Reset integrals at start of simulation
         self.pos_error_integral = np.zeros(3)
         self.pitch_error_integral = 0.0
-        
-        for t in np.arange(0, conf.sim_duration, conf.dt):
+
+        # Pre-compute entire trajectory
+        trajectory = self.precompute_trajectory(pitch_des_final)
+
+        for i, t in enumerate(np.arange(0, conf.sim_duration, conf.dt)):
             if log_counter >= len(logs['time']):
                 break
-                
-            # Generate trajectory
-            p_des, v_des, a_des, pitch_des, pitch_vel_des, pitch_acc_des = \
-                self.generate_trajectory(t, pitch_des_final)
+
+            # Get pre-computed trajectory values
+            p_des = trajectory['p_des'][:, i]
+            v_des = trajectory['v_des'][:, i]
+            a_des = trajectory['a_des'][:, i]
+            pitch_des = trajectory['pitch_des'][i]
+            pitch_vel_des = trajectory['pitch_vel_des'][i]
+            pitch_acc_des = trajectory['pitch_acc_des'][i]
             
             # Compute control
             tau = self.compute_control(q, qd, p_des, v_des, a_des, 
