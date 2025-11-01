@@ -9,66 +9,51 @@ from utils.kin_dyn_utils import fifthOrderPolynomialTrajectory as coeffTraj
 import conf as conf
 
 class TaskSpaceController:
-    def __init__(self, robot, model, data, ros_pub):
+    def __init__(self, robot, model, data, ros_pub, q0, qd0, qdd0, p_des, pitch_des):
         self.robot = robot
         self.model = model
         self.data = data
         self.ros_pub = ros_pub
         self.frame_id = model.getFrameId(conf.frame_name)
-        
-        ts = 7.0  # settling time
-        
+
+        self.ts = conf.task_sim_duration  # settling time
+
+        # Initial joint states
+        self.q0 = q0
+        self.qd0 = qd0
+        self.qdd0 = qdd0
+
+        # Desired end-effector position and orientation
+        self.p_des = p_des
+        self.pitch_des = pitch_des
+
         # Position gains
-        omega_n_pos = 4.0 / ts
-        self.Kp_pos = np.eye(3) * omega_n_pos**2
-        self.Kd_pos = np.eye(3) * 2 * omega_n_pos
+        self.kp_pos = 100.0
+        self.kd_pos = 2 * np.sqrt(self.kp_pos)
         
         # Pitch gains
-        omega_n_pitch = 4.0 / ts
-        self.Kp_pitch = omega_n_pitch**2
-        self.Kd_pitch = 2 * omega_n_pitch
-        
-        # Integral gains (small to prevent windup)
-        self.Ki_pos = np.eye(3) * omega_n_pos**2 * 0.1
-        self.Ki_pitch = omega_n_pitch**2 * 0.1
-        
-        # Error integrals
-        self.pos_error_integral = np.zeros(3)
-        self.pitch_error_integral = 0.0
+        self.kp_pitch = 50.0
+        self.kd_pitch = 2 * np.sqrt(self.kp_pitch)
         
         # Null-space gains
-        self.q0_postural = conf.q0.copy()
-        self.Kp_postural = 2.0
-        self.Kd_postural = 2.0 * np.sqrt(self.Kp_postural)
+        self.kp_ns = 5.0
+        self.kd_ns = 2 * np.sqrt(self.kp_ns)
         
-        # Filter initialization
-        self.vel_prev = np.zeros(3)
-        self.pitch_vel_prev = 0.0
-        self.alpha = 0.9
-        
-        # Deadband and anti-windup
-        self.deadband = 0.002
-        self.integral_limit = 0.5  # Limit for integral term to prevent windup
-        
-        # Error-based gain scheduling
-        self.error_threshold = 0.01  # Reduce gains when error is below this
 
     def forward_kinematics(self, q):
         """Compute current end-effector position and orientation"""
         pin.framesForwardKinematics(self.model, self.data, q)
         p = self.data.oMf[self.frame_id].translation.copy()
-
-        # Get rotation matrix and extract pitch in cartesian space
         R = self.data.oMf[self.frame_id].rotation
         
-        # For microphone: pitch is rotation around world Y-axis
         pitch = np.arcsin(-R[2, 2])
         
         return p, pitch
+    
 
     def initialize_logs(self):
         """Initialize logs"""
-        buffer_size = int(math.ceil(conf.sim_duration / conf.dt))
+        buffer_size = int(math.ceil(self.ts / conf.dt))
         return {
             'time': np.zeros(buffer_size),
             'q': np.zeros((self.model.nq, buffer_size)),
@@ -78,248 +63,150 @@ class TaskSpaceController:
             'pitch_des': np.zeros(buffer_size)
         }
 
-    def compute_postural_target(self, pitch_des_final):
-        """Compute q0_calibrated using IK for desired end-effector pose"""
-        eps = 1e-4
-        IT_MAX = 5000
-        damp = 1e-5
-        dt_ik = 0.01
-        q_ik = conf.q0.copy()
 
-        for i in range(IT_MAX):
-            pin.forwardKinematics(self.model, self.data, q_ik)
-            pin.updateFramePlacement(self.model, self.data, self.frame_id)
-
-            p_ik = self.data.oMf[self.frame_id].translation
-            R_ik = self.data.oMf[self.frame_id].rotation
-            pitch_ik = np.arcsin(-R_ik[2, 2])
-            
-            err_4d = np.hstack([p_ik - conf.p_des, pitch_ik - pitch_des_final])
-
-            if np.linalg.norm(err_4d) < eps:
-                print(f"IK converged in {i} iterations")
-                break
-
-            J = pin.computeFrameJacobian(self.model, self.data, q_ik, self.frame_id,
-                                       pin.LOCAL_WORLD_ALIGNED)
-            
-            # Proper pitch Jacobian in cartesian space
-            J_pos = J[:3, :]
-            
-            # For pitch around world Y-axis, we need the Jacobian for rotation around Y
-            J_angular = J[3:6, :]
-            
-            # The pitch Jacobian is the Y-component of the angular velocity in world frame
-            J_pitch = (R_ik.T @ J_angular)[1, :].reshape(1, -1)
-            
-            J_4d = np.vstack([J_pos, J_pitch])
-            J_inv = J_4d.T @ np.linalg.inv(J_4d @ J_4d.T + damp * np.eye(4))
-            q_ik = pin.integrate(self.model, q_ik, -J_inv @ err_4d * dt_ik)
-        else:
-            print("IK didn't converge")
-            
-        return q_ik
-
-    def generate_trajectory(self, t, pitch_des_final):
+    def generate_trajectory(self, pitch_des_final):
         """Generate 5th-order polynomial trajectory in task space"""
-        p0, pitch0 = self.forward_kinematics(conf.q0)
-        
-        if t > conf.traj_duration:
-            return conf.p_des, np.zeros(3), np.zeros(3), pitch_des_final, 0.0, 0.0
+        p0, pitch0 = self.forward_kinematics(self.q0)
 
-        # Position trajectory
-        p_des, v_des, a_des = np.zeros(3), np.zeros(3), np.zeros(3)
-        for i in range(3):
-            c = coeffTraj(conf.traj_duration, p0[i], conf.p_des[i])
-            p_des[i] = sum(c[j] * t**j for j in range(6))
-            v_des[i] = sum((j+1)*c[j+1] * t**j for j in range(5))
-            a_des[i] = sum((j+1)*(j+2)*c[j+2] * t**j for j in range(4))
-
-        # Pitch trajectory
-        c = coeffTraj(conf.traj_duration, pitch0, pitch_des_final)
-        pitch_des = sum(c[j] * t**j for j in range(6))
-        pitch_vel_des = sum((j+1)*c[j+1] * t**j for j in range(5))
-        pitch_acc_des = sum((j+1)*(j+2)*c[j+2] * t**j for j in range(4))
-
-        return p_des, v_des, a_des, pitch_des, pitch_vel_des, pitch_acc_des
-
-    def compute_control(self, q, qd, p_des, v_des, a_des, pitch_des, pitch_vel_des, pitch_acc_des, q0_calibrated):
-        """Compute inverse dynamics control with task space linearization"""
-        # Update kinematics
-        pin.forwardKinematics(self.model, self.data, q, qd)
-        pin.updateFramePlacement(self.model, self.data, self.frame_id)
+        # Create time array
+        time_steps = int(math.ceil(self.ts / conf.dt))
+        time_array = np.arange(0, self.ts, conf.dt)
         
-        # Current state
-        p = self.data.oMf[self.frame_id].translation
-        R = self.data.oMf[self.frame_id].rotation
-        pitch = np.arcsin(-R[2, 2])
+        # Initialize trajectory arrays
+        p_traj = np.zeros((3, time_steps))
+        v_traj = np.zeros((3, time_steps))
+        a_traj = np.zeros((3, time_steps))
+        pitch_traj = np.zeros(time_steps)
+        pitch_vel_traj = np.zeros(time_steps)
+        pitch_acc_traj = np.zeros(time_steps)
         
-        J = pin.getFrameJacobian(self.model, self.data, self.frame_id, pin.LOCAL_WORLD_ALIGNED)
-        twist = J @ qd
-        v, omega = twist[:3], twist[3:]
+        # Compute position coefficients
+        pos_coeffs = [coeffTraj(self.ts, p0[i], self.p_des[i]) for i in range(3)]
+        # Compute pitch coefficients
+        pitch_coeffs = coeffTraj(self.ts, pitch0, pitch_des_final)
         
-        # Compute pitch velocity (rotation around world Y-axis)
-        J_angular = J[3:6, :]
-        pitch_vel_current = (R.T @ J_angular @ qd)[1]
-        
-        # Apply low-pass filtering to velocity estimates
-        v_filtered = self.alpha * self.vel_prev + (1 - self.alpha) * v
-        pitch_vel_current_filtered = self.alpha * self.pitch_vel_prev + (1 - self.alpha) * pitch_vel_current
-        
-        # Update previous values for next iteration
-        self.vel_prev = v_filtered
-        self.pitch_vel_prev = pitch_vel_current_filtered
-        
-        # Task space errors
-        pos_error = p_des - p
-        vel_error = v_des - v_filtered
-        
-        # Pitch error calculation
-        pitch_error = pitch_des - pitch
-        pitch_vel_error = pitch_vel_des - pitch_vel_current_filtered
-        
-        # Error-based gain scheduling
-        pos_error_norm = np.linalg.norm(pos_error)
-        pitch_error_abs = abs(pitch_error)
-        
-        # Reduce gains when close to target to prevent overshoot
-        if pos_error_norm < self.error_threshold:
-            Kp_pos_effective = self.Kp_pos * (pos_error_norm / self.error_threshold)
-            Kd_pos_effective = self.Kd_pos * (pos_error_norm / self.error_threshold)
-        else:
-            Kp_pos_effective = self.Kp_pos
-            Kd_pos_effective = self.Kd_pos
+        for idx, t in enumerate(time_array):
+            # Position trajectory
+            for i in range(3):
+                c = pos_coeffs[i]
+                p_traj[i, idx] = sum(c[j] * t**j for j in range(6))
+                v_traj[i, idx] = sum((j+1)*c[j+1] * t**j for j in range(5))
+                a_traj[i, idx] = sum((j+1)*(j+2)*c[j+2] * t**j for j in range(4))
             
-        if pitch_error_abs < self.error_threshold:
-            Kp_pitch_effective = self.Kp_pitch * (pitch_error_abs / self.error_threshold)
-            Kd_pitch_effective = self.Kd_pitch * (pitch_error_abs / self.error_threshold)
-        else:
-            Kp_pitch_effective = self.Kp_pitch
-            Kd_pitch_effective = self.Kd_pitch
+            # Pitch trajectory
+            pitch_traj[idx] = sum(pitch_coeffs[j] * t**j for j in range(6))
+            pitch_vel_traj[idx] = sum((j+1)*pitch_coeffs[j+1] * t**j for j in range(5))
+            pitch_acc_traj[idx] = sum((j+1)*(j+2)*pitch_coeffs[j+2] * t**j for j in range(4))
         
-        # Update integral terms with anti-windup
-        self.pos_error_integral += pos_error * conf.dt
-        self.pitch_error_integral += pitch_error * conf.dt
-        
-        # Limit integral terms to prevent windup
-        self.pos_error_integral = np.clip(self.pos_error_integral, -self.integral_limit, self.integral_limit)
-        self.pitch_error_integral = np.clip(self.pitch_error_integral, -self.integral_limit, self.integral_limit)
-        
-        # PD control with computed gains and integral term
-        a_pos_des = a_des + Kd_pos_effective @ vel_error + Kp_pos_effective @ pos_error + self.Ki_pos @ self.pos_error_integral
-        a_pitch_des = pitch_acc_des + Kd_pitch_effective * pitch_vel_error + Kp_pitch_effective * pitch_error + self.Ki_pitch * self.pitch_error_integral
-        
-        # Task Jacobian (position + pitch)
-        J_pos = J[:3, :]
-        
-        # Pitch Jacobian (rotation around world Y-axis)
-        J_pitch = (R.T @ J_angular)[1, :].reshape(1, -1)
-        J_task = np.vstack([J_pos, J_pitch])
+        return {
+            'time': time_array,
+            'p': p_traj,
+            'v': v_traj,
+            'a': a_traj,
+            'pitch': pitch_traj,
+            'pitch_vel': pitch_vel_traj,
+            'pitch_acc': pitch_acc_traj
+        }
 
-        # Time derivative of Jacobian
-        Jdot = pin.getFrameJacobianTimeVariation(self.model, self.data, self.frame_id, pin.LOCAL_WORLD_ALIGNED)
-        Jdot_pos = Jdot[:3, :]
+
+    def compute_control(self, q, qd, p_des, v_des, a_des, pitch_des, pitch_vel_des, pitch_acc_des, q0):
+        """Compute control torques using inverse dynamics in task space with null-space projection"""
+        # Update model with current state and compute dynamics
+        pin.computeAllTerms(self.model, self.data, q, qd)
+        pin.framesForwardKinematics(self.model, self.data, q)
+
+        # Get the full 6D Jacobian for the end-effector frame
+        J6 = pin.getFrameJacobian(self.model, self.data, self.frame_id, pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)
+        R = self.data.oMf[self.frame_id].rotation
+
+        ## Task Jacobian (position + pitch)
+        J_pos = J6[:3, :]
+        J_angular_world = J6[3:6, :]
+        J_pitch = (R.T @ J_angular_world)[1, :].reshape(1, -1)
+        J_task = np.vstack([J_pos, J_pitch])
         
-        # Approximate Jdot for pitch
+        # Get current state
+        p, pitch = self.forward_kinematics(q)
+        v_linear = J_pos @ qd
+        omega_world = J_angular_world @ qd
+        pitch_vel_current = (R.T @ omega_world)[1]
+        
+        # Calculate errors
+        p_error = p_des - p
+        v_error = v_des - v_linear
+        pitch_error = pitch_des - pitch
+        pitch_vel_error = pitch_vel_des - pitch_vel_current
+
+        # Desired task-space acceleration (PD control)
+        acc_des_task = np.zeros(4)
+        acc_des_task[:3] = a_des + self.kd_pos * v_error + self.kp_pos * p_error
+        acc_des_task[3] = pitch_acc_des + self.kd_pitch * pitch_vel_error + self.kp_pitch * pitch_error
+
+        # Time derivative of Jacobian (approximating pitch part as zero)
+        Jdot6 = pin.getFrameJacobianTimeVariation(self.model, self.data, self.frame_id, pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)
+        Jdot_pos = Jdot6[:3, :]
         Jdot_pitch = np.zeros((1, self.model.nv))
         Jdot_task = np.vstack([Jdot_pos, Jdot_pitch])
         
-        # Inverse dynamics
-        M = pin.crba(self.model, self.data, q)
-        h = pin.nonLinearEffects(self.model, self.data, q, qd)
-        Lambda_task = np.linalg.inv(J_task @ np.linalg.inv(M) @ J_task.T + 1e-6*np.eye(4))
+        # Inverse Dynamics (without null-space)
+        lambda_damping = 0.1
+        I = np.eye(J_task.shape[0])
+        J_task_pinv = J_task.T @ np.linalg.inv(J_task @ J_task.T + lambda_damping**2 * I)
         
-        # Null-space projection
-        N_task = np.eye(self.model.nv) - J_task.T @ np.linalg.pinv(J_task.T, 1e-4)
-        q_postural = self.Kp_postural * (q0_calibrated - q) - self.Kd_postural * qd
+        # Null-space projection for secondary task
+        null_space_projector = np.eye(self.model.nv) - J_task_pinv @ J_task
         
-        # Combined control
-        a_task = np.hstack([a_pos_des, a_pitch_des])
-        qdd_des = np.linalg.inv(M) @ J_task.T @ Lambda_task @ (a_task - Jdot_task @ qd) + N_task @ q_postural
-        tau = M @ qdd_des + h
+        # Null-space desired acceleration
+        q_ddot_null = self.kp_ns * (q0 - q) - self.kd_ns * qd
         
-        # Apply deadband to prevent small oscillations
-        tau_norm = np.linalg.norm(tau)
-        if tau_norm < self.deadband:
-            tau = np.zeros_like(tau)
+        # Final joint acceleration
+        q_ddot = J_task_pinv @ (acc_des_task - Jdot_task[:4,:] @ qd) + null_space_projector @ q_ddot_null
+
+        # Compute control torques
+        tau = self.data.M @ q_ddot + self.data.nle
 
         return tau
 
-    def precompute_trajectory(self, pitch_des_final):
-        """Pre-compute entire trajectory before simulation"""
-        time_steps = np.arange(0, conf.sim_duration, conf.dt)
-        trajectory = {
-            'p_des': np.zeros((3, len(time_steps))),
-            'v_des': np.zeros((3, len(time_steps))),
-            'a_des': np.zeros((3, len(time_steps))),
-            'pitch_des': np.zeros(len(time_steps)),
-            'pitch_vel_des': np.zeros(len(time_steps)),
-            'pitch_acc_des': np.zeros(len(time_steps))
-        }
 
-        for i, t in enumerate(time_steps):
-            p_des, v_des, a_des, pitch_des, pitch_vel_des, pitch_acc_des = \
-                self.generate_trajectory(t, pitch_des_final)
-
-            trajectory['p_des'][:, i] = p_des
-            trajectory['v_des'][:, i] = v_des
-            trajectory['a_des'][:, i] = a_des
-            trajectory['pitch_des'][i] = pitch_des
-            trajectory['pitch_vel_des'][i] = pitch_vel_des
-            trajectory['pitch_acc_des'][i] = pitch_acc_des
-
-        return trajectory
-
-    def simulate(self, pitch_des_final):
+    def simulate(self):
         """Main simulation loop"""
         logs = self.initialize_logs()
-        q, qd = conf.q0.copy(), np.zeros(self.model.nv)
-        q0_calibrated = self.compute_postural_target(pitch_des_final)
+        q, qd = self.q0.copy(), np.zeros(self.model.nv)
         log_counter = 0
 
-        # Reset integrals at start of simulation
-        self.pos_error_integral = np.zeros(3)
-        self.pitch_error_integral = 0.0
+        # Generate trajectory
+        trajectory = self.generate_trajectory(self.pitch_des)
 
-        # Pre-compute entire trajectory
-        trajectory = self.precompute_trajectory(pitch_des_final)
+        # Simulation loop
+        for idx in range(len(trajectory['time'])):
+            # Current time and desired states from trajectory
+            t = trajectory['time'][idx]
+            p_des = trajectory['p'][:, idx]
+            v_des = trajectory['v'][:, idx]
+            a_des = trajectory['a'][:, idx]
+            pitch_des = trajectory['pitch'][idx]
+            pitch_vel_des = trajectory['pitch_vel'][idx]
+            pitch_acc_des = trajectory['pitch_acc'][idx]
 
-        for i, t in enumerate(np.arange(0, conf.sim_duration, conf.dt)):
-            if log_counter >= len(logs['time']):
-                break
-
-            # Get pre-computed trajectory values
-            p_des = trajectory['p_des'][:, i]
-            v_des = trajectory['v_des'][:, i]
-            a_des = trajectory['a_des'][:, i]
-            pitch_des = trajectory['pitch_des'][i]
-            pitch_vel_des = trajectory['pitch_vel_des'][i]
-            pitch_acc_des = trajectory['pitch_acc_des'][i]
-            
             # Compute control
-            tau = self.compute_control(q, qd, p_des, v_des, a_des, 
-                                     pitch_des, pitch_vel_des, pitch_acc_des, q0_calibrated)
-            
+            tau = self.compute_control(q, qd, p_des, v_des, a_des, pitch_des, pitch_vel_des, pitch_acc_des, self.q0)
+                
             # Forward dynamics integration
-            Minv = np.linalg.inv(pin.crba(self.model, self.data, q))
-            h = pin.nonLinearEffects(self.model, self.data, q, qd)
-            qdd = Minv @ (tau - h)
-            qd_next = qd + qdd * conf.dt
-            q_next = pin.integrate(self.model, q, (qd + qd_next) * 0.5 * conf.dt)
-            
-            # Update state
-            q, qd = q_next, qd_next
-            
+            q = pin.integrate(self.model, q, qd * conf.dt)
+            a = pin.aba(self.model, self.data, q, qd, tau)
+            qd += a * conf.dt
+
             # Log data
-            p, pitch = self.forward_kinematics(q)
-            logs['time'][log_counter] = t
-            logs['q'][:, log_counter] = q
-            logs['p'][:, log_counter] = p
-            logs['p_des'][:, log_counter] = p_des
-            logs['pitch'][log_counter] = pitch
-            logs['pitch_des'][log_counter] = pitch_des
-            log_counter += 1
-            
+            if log_counter < len(logs['time']):
+                p, pitch = self.forward_kinematics(q)
+                logs['time'][log_counter] = t
+                logs['q'][:, log_counter] = q
+                logs['p'][:, log_counter] = p
+                logs['p_des'][:, log_counter] = p_des
+                logs['pitch'][log_counter] = pitch
+                logs['pitch_des'][log_counter] = pitch_des
+                log_counter += 1
+                
             # Publish to ROS
             self.ros_pub.publish(self.robot, q, qd, tau)
             tm.sleep(conf.dt * conf.SLOW_FACTOR)

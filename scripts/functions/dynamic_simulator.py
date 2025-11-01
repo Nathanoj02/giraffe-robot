@@ -10,7 +10,6 @@ class DynamicSimulator:
         self.robot = robot
         self.ros_pub = ros_pub
         self.zero = np.zeros(5)
-        self.error = np.ones(4)
         
         # Joint limits
         self.jl_K = 5       # Joint limit stiffness
@@ -80,8 +79,8 @@ class DynamicSimulator:
         g = pin.rnea(self.robot.model, self.robot.data, q, self.zero, self.zero)
 
         # PD gains scaled by joint inertia (lower gains for low-inertia wrist joints)
-        Kp = np.array([8.0, 10.0, 5.0, 2.0, 1.5])   # Reduced gains for wrist joints
-        Kd = np.array([2.0, 2.5, 1.5, 1.0, 0.8])    # Reduced damping for wrist joints
+        Kp = np.array([8.0, 10.0, 5.0, 2.0, 1.5])
+        Kd = np.array([2.0, 2.5, 1.5, 1.0, 0.8])
 
         # PD control torque
         tau_pd = Kp * (q_des - q) + Kd * (qd_des - qd)
@@ -94,11 +93,6 @@ class DynamicSimulator:
 
     def compute_total_torque(self, q, qd, q_des=None, qd_des=None):
         """Compute total joint torque input for simulation"""
-        if q_des is None:
-            q_des = np.zeros(5)  # Home position
-        if qd_des is None:
-            qd_des = np.zeros(5)  # Desired velocity
-
         # Use gravity compensation control
         return self.compute_gravity_compensation_torque(q, qd, q_des, qd_des)
     
@@ -115,13 +109,13 @@ class DynamicSimulator:
             # Compute total torque input with gravity compensation
             tau = self.compute_total_torque(q, qd, q_des, qd_des)
 
-            # TASK 3: Forward dynamics simulation using RNEA
-            # As explained in the labs: compute forward dynamics to get joint accelerations
-            # that will be used to calculate velocities and then positions
+            # Forward dynamics simulation using RNEA
+            # Compute forward dynamics to get joint accelerations -> will be used to calculate velocities and then positions
             try:
                 # Add small regularization to avoid singularities
                 M_reg = M + 1e-6 * np.eye(5)
                 M_inv = np.linalg.inv(M_reg)
+                
                 # Forward dynamics: qdd = M^-1 * (tau - h)
                 qdd = M_inv.dot(tau - h)
 
@@ -133,9 +127,10 @@ class DynamicSimulator:
                 qdd = 0.01 * np.ones(5)
 
             # Forward Euler Integration
-            # First update velocities from accelerations
+            # Update velocities from accelerations
             qd = qd + qdd * conf.dt
-            # Then update positions from velocities and accelerations
+
+            # Update positions from velocities and accelerations
             q = q + conf.dt * qd + 0.5 * conf.dt * conf.dt * qdd
 
             # Clamp velocities and positions to prevent numerical issues

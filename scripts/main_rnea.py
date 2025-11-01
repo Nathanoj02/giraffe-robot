@@ -16,23 +16,20 @@ if __name__ == "__main__":
     kin = robotKinematics(robot, conf.frame_name)
 
     # Initialize robot state with extended configuration
-    # [base_rot, shoulder_tilt, prismatic_extension, wrist_rot, wrist_tilt]
-    q = np.array([0.5, -0.3, 1.0, 0.4, -0.2])     # Extended configuration (1m prismatic)
+    q = conf.q_ext.copy()       # Extended configuration
     qd = conf.qd0.copy()
     qdd = conf.qdd0.copy()
 
-    # Target: home configuration [0, 0, 0, 0, 0]
-    q_des = np.zeros(5)    # Home position
-    qd_des = conf.qd0.copy()    # Zero velocity at target
-    qdd_des = conf.qdd0.copy()  # Zero acceleration at target
-
-    math_utils = Math()
-
-    t = 0.
-
-    frame_id = model.getFrameId(conf.frame_name)
+    # Target: home configuration
+    q_des = conf.q0.copy()
+    qd_des = conf.qd0.copy()
+    qdd_des = conf.qdd0.copy()
 
     simulator = DynamicSimulator(robot, ros_pub)
+
+    # Ask user to start simulation
+    input("Press Enter to start the gravity compensation simulation...")
+
     logs = simulator.simulate(q, qd, qdd, q_des, qd_des, qdd_des)
 
     ros_pub.deregister_node()
